@@ -3,10 +3,12 @@
     Dan Hoover, Carson Schaefer, Mike Swierenga
     CIS 457: proj 3
 */
+import java.io;
+import java.net.*;
+
 
 import java.io.*;
 import java.net.*;
-import java.util.Scanner;
 import java.lang.Integer;
 
 class server {
