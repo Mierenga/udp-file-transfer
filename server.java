@@ -3,8 +3,6 @@
     Dan Hoover, Carson Schaefer, Mike Swierenga
     CIS 457: proj 3
 */
-import java.io;
-import java.net.*;
 
 
 import java.io.*;
@@ -36,13 +34,23 @@ class server {
     
         /* Open a socket to listen */
         try {
-            DatagramSocket serverSocket = new DatagramSocket(port);
+			DatagramSocket serverSocket = new DatagramSocket(port);
             byte[] data = new byte[SIZE];
             DatagramPacket recvPacket = 
                 new DatagramPacket(data,data.length);
             serverSocket.receive(recvPacket);
-            String filename = new String(recvPacket.getData());
-            System.out.println("filename: " + filename);
+            String requestString = new String(recvPacket.getData());
+            String[] requestArray = requestString.split(" ");
+            String fileName = "file request recieved: " + requestArray[0];
+            String IPAddr = requestArray[1];
+            System.out.println(fileName);
+            System.out.println("IP: " + IPAddr);
+            InetAddress clientIP = InetAddress.getByName(IPAddr);
+            data = fileName.getBytes();
+            fileName = requestArray[0];
+            DatagramPacket sendPacket = new DatagramPacket(data,data.length,
+					clientIP,port+1);
+            serverSocket.send(sendPacket);
            
         
         } catch (SocketException e) {

@@ -51,18 +51,26 @@ class client {
                 System.err.println("second argument: port must be between 0 and 65536");
             }
         
-            DatagramSocket clientSocket = new DatagramSocket();
+            DatagramSocket clientSocket = new DatagramSocket(port+1);
             clientSocket.setSoTimeout(5000);
         
             // send request to the server
+            InetAddress localAddr = InetAddress.getLocalHost();
             
-            String filename = args[2];
-            byte[] sendData = filename.getBytes();
+            String filename = args[2]+" "+localAddr.getHostAddress();
+            byte[] data = new byte[1500];
+            data=filename.getBytes();
             DatagramPacket sendPacket = 
-                new DatagramPacket(sendData,sendData.length,ipaddr,port);
+                new DatagramPacket(data,data.length,ipaddr,port);
             clientSocket.send(sendPacket);
             
             // Receive confirmation
+            DatagramPacket recvPacket = 
+                new DatagramPacket(data,data.length);
+            clientSocket.receive(recvPacket);
+            System.out.println(new String(recvPacket.getData()));
+            
+          
             
             
             
