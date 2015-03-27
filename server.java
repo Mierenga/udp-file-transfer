@@ -6,6 +6,8 @@
 
 
 import java.io.*;
+import static java.nio.file.StandardOpenOption.*;
+import java.nio.file.*;
 import java.net.*;
 import java.lang.Integer;
 
@@ -14,6 +16,12 @@ class server {
     public static final int SIZE = 1500;
     
     public static void main(String args[]) {
+    
+    
+        /* Set up a log file */
+        
+        
+
     
         /* Get port number from arg */
         int port = 0;
@@ -26,31 +34,41 @@ class server {
             System.err.println("must enter port number as first argument");
             System.exit(0);
         }
-        if (port > 65535 || port < 1) {
-            System.err.println("port must be between 0 and 65536");
+        if (port > 65535 || port < 1024) {
+            System.err.println("port must be from 1024 to 65535");
             System.exit(0);
         }
         
-    
-        /* Open a socket to listen */
+        
         try {
+        
+            /* Open a socket to listen */
+            
 			DatagramSocket serverSocket = new DatagramSocket(port);
+            
+            
+            /* Receive a file request */
+            
             byte[] data = new byte[SIZE];
+
             DatagramPacket recvPacket = 
                 new DatagramPacket(data,data.length);
             serverSocket.receive(recvPacket);
-            String requestString = new String(recvPacket.getData());
-            String[] requestArray = requestString.split(" ");
-            String fileName = "file request recieved: " + requestArray[0];
-            String IPAddr = requestArray[1];
-            System.out.println(fileName);
-            System.out.println("IP: " + IPAddr);
-            InetAddress clientIP = InetAddress.getByName(IPAddr);
-            data = fileName.getBytes();
-            fileName = requestArray[0];
-            DatagramPacket sendPacket = new DatagramPacket(data,data.length,
-					clientIP,port+1);
+            String filename = new String(recvPacket.getData());
+            filename = filename.trim();
+            
+            /* Send a confirmation of request */
+            
+            String confirmation = new String("server received request for '" + filename + "'");
+            InetAddress clientAddr = recvPacket.getAddress();
+            int clientPort = recvPacket.getPort();
+            System.out.println( confirmation + " from " + clientAddr.toString() + " [" + clientPort + "]" );
+            data = confirmation.getBytes();
+            DatagramPacket sendPacket =
+                new DatagramPacket(data, data.length, clientAddr, clientPort);
             serverSocket.send(sendPacket);
+            
+            /* Begin sending the file data */
            
         
         } catch (SocketException e) {

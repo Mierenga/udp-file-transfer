@@ -27,9 +27,9 @@ class client {
         
             /* Get IP addr of the server */
             
-            InetAddress ipaddr = InetAddress.getByName("");
+            InetAddress serverAddr = InetAddress.getByName("");
 		    try {
-			    ipaddr = InetAddress.getByName(args[0]);	
+			    serverAddr = InetAddress.getByName(args[0]);	
 		    } catch (ArrayIndexOutOfBoundsException e) {
 			    System.out.println("first argument: invalid IP address");
 			    System.exit(0);
@@ -47,28 +47,31 @@ class client {
                 System.err.println("second argument: invalid port number");
                 System.exit(0);
             }
-            if (port > 65535 || port < 1) {
-                System.err.println("second argument: port must be between 0 and 65536");
+            if (port > 65535 || port < 1024) {
+                System.err.println("second argument: port must be from 1024 to 65535");
             }
         
-            DatagramSocket clientSocket = new DatagramSocket(port+1);
+            DatagramSocket clientSocket = new DatagramSocket();
             clientSocket.setSoTimeout(5000);
         
-            // send request to the server
-            InetAddress localAddr = InetAddress.getLocalHost();
+            /* send request to the server */
             
-            String filename = args[2]+" "+localAddr.getHostAddress();
-            byte[] data = new byte[1500];
-            data=filename.getBytes();
+            byte[] filenameData = args[2].getBytes();
+            
             DatagramPacket sendPacket = 
-                new DatagramPacket(data,data.length,ipaddr,port);
+                new DatagramPacket( filenameData, filenameData.length, serverAddr, port );
             clientSocket.send(sendPacket);
             
-            // Receive confirmation
+            /* Receive confirmation */
+            
+            byte[] confirmationData = new byte[1500];
+            
             DatagramPacket recvPacket = 
-                new DatagramPacket(data,data.length);
-            clientSocket.receive(recvPacket);
-            System.out.println(new String(recvPacket.getData()));
+                new DatagramPacket( confirmationData, confirmationData.length );
+            clientSocket.receive( recvPacket );
+            
+            String confirmation = new String( recvPacket.getData() );
+            System.out.println( confirmation );
             
           
             
