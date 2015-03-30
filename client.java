@@ -6,7 +6,6 @@
 
 import java.io.*;
 import java.net.*;
-import java.util.*;
 
 class client {
 
@@ -20,9 +19,6 @@ class client {
            System.exit(0);
         }
         
-        
-        
-        /* Open a socket to the server */
         try {
         
             /* Get IP addr of the server */
@@ -50,7 +46,9 @@ class client {
             if (port > 65535 || port < 1024) {
                 System.err.println("second argument: port must be from 1024 to 65535");
             }
-        
+            
+            /* Open a socket to the server */
+             
             DatagramSocket clientSocket = new DatagramSocket();
             clientSocket.setSoTimeout(5000);
         
@@ -73,10 +71,15 @@ class client {
             String confirmation = new String( recvPacket.getData() );
             System.out.println( confirmation );
             
-          
+            if (confirmation.contains("unable")) {
+            	System.exit(1);
+            }
+            
+            /* start receiving data */
             
             
             
+            clientSocket.close();
         
         } catch (UnknownHostException e) {
             System.out.println("first argument: invalid IP address");
