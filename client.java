@@ -9,6 +9,9 @@ import java.net.*;
 
 class client {
 
+    public static final int SIZE = 1004;
+    public static final int TIMEOUT = 5000;
+
     public static void main(String args[]) {
         
         if (args.length != 3) {
@@ -23,10 +26,12 @@ class client {
         
             /* Get IP addr of the server */
             
-            InetAddress serverAddr = InetAddress.getByName("");
+            InetAddress serverAddr = null;
+            
 		    try {
-			    serverAddr = InetAddress.getByName(args[0]);	
-		    } catch (ArrayIndexOutOfBoundsException e) {
+			    serverAddr = InetAddress.getByName(args[0]);
+			    
+		    } catch (ArrayIndexOutOfBoundsException x) {
 			    System.out.println("first argument: invalid IP address");
 			    System.exit(0);
 	        } 
@@ -34,15 +39,19 @@ class client {
             /* Get port of the server */
             
             int port = 0;
+            
             try {
                 port = (Integer.parseInt(args[1]));
-            } catch (ArrayIndexOutOfBoundsException e) {
+                
+            } catch (ArrayIndexOutOfBoundsException x) {
                 System.err.println("second argument: invalid port number");
                 System.exit(0);
-            } catch (NumberFormatException e) {
+                
+            } catch (NumberFormatException x) {
                 System.err.println("second argument: invalid port number");
                 System.exit(0);
             }
+            
             if (port > 65535 || port < 1024) {
                 System.err.println("second argument: port must be from 1024 to 65535");
             }
@@ -50,7 +59,7 @@ class client {
             /* Open a socket to the server */
              
             DatagramSocket clientSocket = new DatagramSocket();
-            clientSocket.setSoTimeout(5000);
+            clientSocket.setSoTimeout(TIMEOUT);
         
             /* send request to the server */
             
@@ -60,24 +69,48 @@ class client {
                 new DatagramPacket( filenameData, filenameData.length, serverAddr, port );
             clientSocket.send(sendPacket);
             
-            /* Receive confirmation */
+            /* Receive confirmation or denial */
             
-            byte[] confirmationData = new byte[1500];
+            byte[] recvData = new byte[SIZE];
             
             DatagramPacket recvPacket = 
-                new DatagramPacket( confirmationData, confirmationData.length );
+                new DatagramPacket( recvData, recvData.length );
             clientSocket.receive( recvPacket );
             
-            String confirmation = new String( recvPacket.getData() );
-            System.out.println( confirmation );
+            String status = new String( recvPacket.getData() );
+            System.out.println( status );
             
             if (confirmation.contains("unable")) {
+                clientSocket.close();
             	System.exit(1);
             }
+	        
+            // Create a path for output file
             
-            /* start receiving data */
+        	Path path = Paths.get("new-transferred-file.out");
             
+            // Create a SeekableByteChannel object for the path
+	        	
+	        SeekableByteChannel fileChannel = Files.newByteChannel(path, EnumSet.of(CREATE, WRITE));
             
+            int acknowledgmentNumber = 0;
+            
+                // receive packet of data
+                
+                recvPacket = 
+                    new DatagramPacket( recvData, recvData.length );
+                clientSocket.receive( recvPacket );
+                
+                // write the packet contents to the appropriate spot in SeekableByteChannel
+                
+                
+                acknowledgmentNumber = writeToChannel(recvPacket.getData(), fileChannel);
+                
+                // send acknowledgment number to server
+                
+                
+                
+                
             
             clientSocket.close();
         
@@ -94,6 +127,18 @@ class client {
 			System.err.println("IO error: " + e.getMessage());
 			System.exit(1);
 		}
+        
+    }
+    
+    /*
+        Returns the sequence number of the data being written
+    */
+    public static int
+    writeToChannel(byte[] packet, SeekableByteChannel sbc)
+    {
+        // put packet data into ByteBuffer bb
+        // store packet head into int x
+        // write bb to sbc at position (x*DATA_SIZE)
         
     }
 
