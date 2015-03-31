@@ -1,3 +1,8 @@
 #!/bin/bash
 
-java client 127.0.0.1 9876 server.class
+if [ -n "$1" ] 
+then
+    java client 127.0.0.1 9876 "$1"
+else
+    java client 127.0.0.1 9876 ball.png
+fi

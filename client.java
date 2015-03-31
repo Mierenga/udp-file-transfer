@@ -101,9 +101,7 @@ class client {
             /* Get file size and number of expected packets */
             
             String[] status = statusStr.split(":");
-            
 
-            
             try {
                 fileSize = Integer.parseInt(status[1]);
                 totalPackets = Integer.parseInt(status[2]);
@@ -115,7 +113,7 @@ class client {
             System.out.println(status[0]);
             System.out.println("file size: " + status[1] + " bytes");
             System.out.println("expected packets: " + status[2]);
-	        
+	        System.out.print("packet traffic: [ ");
             // Create a path for output file
             
         	Path path = Paths.get(args[2] + ".out");
@@ -127,7 +125,7 @@ class client {
             
             int seqNumber = 0;
             
-            for (;;) {
+            for (int i = 0; i < totalPackets; i++) {
             
                 // receive packet of data
                 
@@ -136,16 +134,23 @@ class client {
                 // write the packet contents to the appropriate spot in SeekableByteChannel
                 
                 seqNumber = writeToChannel(recvPacket.getData(), fileChannel);
-                System.out.println("  + received packet " + seqNumber);
+                System.out.print("r: " + seqNumber + ", ");
                 
                 // send acknowledgment number to server
                 
+                byte[] ack = ByteBuffer.allocate(HEAD_SIZE).putInt(seqNumber).array();
+                
+                DatagramPacket sendAck = 
+                    new DatagramPacket(ack, ack.length, serverAddr, port);
+                clientSocket.send(sendAck);
+                
+                System.out.print("a: " + seqNumber + ", ");
+                
             }
-                
-                
             
+            System.out.println("received and acknowledged all packets ]");
+            System.out.println("New file is '" + args[2] + ".out'");
             
-        
         } catch (UnknownHostException e) {
             System.out.println("first argument: invalid IP address");
 		    System.exit(1);
@@ -193,8 +198,12 @@ class client {
         }
         return sequence;
     }
-
+    
 }
+
+
+
+
 
 
 

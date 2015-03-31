@@ -18,6 +18,8 @@ class server {
     public static final int DATA_SIZE = 1000;
     public static final int HEAD_SIZE = 4;
     public static final int PACK_SIZE = DATA_SIZE + HEAD_SIZE;
+    public static final int WINDOW_SIZE = 5;
+    public static final int ACKNOWLEDGED = -1;
     
     public static void main(String args[]) {
 
@@ -99,25 +101,33 @@ class server {
                 	
                 	SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
                 	
-                	// setup the sliding window
+                	// get info about the file
                 	
                 	double dFileSize = fileChannel.size();
                 	                	
                 	int totalPackets = (int) Math.ceil(dFileSize / DATA_SIZE);
                     int fileSize = (int) dFileSize;
                 	
+                	// send the confirmation of request
+                	
                 	serverSocket.send (
             	        assembleConfirmPacket (
                             fileName, fileSize, totalPackets, clientAddr, clientPort));
-                	
-                	
-                	
+
+                    // setup the sliding window                    
+                    
                 	int windowBottom = 0;
                 	int sequence = 0;
+                	int acknowledgment = 0;
+                	int ackCount = 0;
+                	int[] window = new int[5];
+                	int head = 0;
                 	
                     // Construct and send the first five packets
 
-                    for (int i = 0; i < 5; i++) {
+                    System.out.print("packet traffic:\n[");
+
+                    for (int i = 0; i < WINDOW_SIZE; i++) {
                         
                         if (sequence < totalPackets) {
                             
@@ -125,7 +135,9 @@ class server {
                                 constructNextPacket(
                                     fileChannel, clientAddr, clientPort, sequence++));
                                     
-                            System.out.println("  + sent packet " + i);
+                            System.out.print("s:" + sequence + ", ");
+                            window[i] = i;
+                            
                         } else {
                             break;
                         }
@@ -134,24 +146,39 @@ class server {
 	                    
                     // listen for acknowledgments from client
                     
+                    while (sequence < totalPackets || ackCount < totalPackets) {
                     
-                    // while (incomplete != 0) {
             			// listen for any ack
             			
-            			//serverSocket.receive(recvPacket);
+            			serverSocket.receive(recvPacket);
             			
             			// parse ack for sequence number
-            			// find that sequence number in window array
-            			// increment the count
-            			// if (count > maxCount)
-            				// set window slot to null
-            				// decrement incomplete
-            			// else
-            				// replace the contents with loadWindow
-            				// send the packet
-            			// 
-            		// }
-	                
+            			
+            			acknowledgment = getAckNumber(recvPacket);
+                        ackCount++;
+                        
+                        System.out.print("a:" + acknowledgment + ", ");
+                        
+                        // update window with new acknowledgment
+                        
+                        int packetsToSend = updateWindow(window, head, acknowledgment);
+                        head = (head+packetsToSend)%WINDOW_SIZE;
+                        
+                        // send new packets, if necessary
+                        
+                        for (int i = 0; i < packetsToSend; i++) {
+                            
+                            serverSocket.send(
+                                constructNextPacket(
+                                    fileChannel, clientAddr, clientPort, sequence++));
+                                    
+                        System.out.print("s:" + sequence + ", ");
+                            
+                        }
+            	    }
+            	    
+	                System.out.println("client acknowledged " +
+                            ackCount + " of " + totalPackets + " packets]\n");
 	            	
 	            }
 	            	
@@ -237,6 +264,59 @@ class server {
         System.arraycopy(data.array(), 0, packArr, 4, DATA_SIZE);
         
         return packArr;
+    }
+    /*
+        Returns number of packets to send to client
+    */
+    public static int
+    updateWindow(int[] win, int head, int ack)
+    {
+        int packetsToSend = 0;
+        if (ack == ACKNOWLEDGED) {
+        
+            // set the headslot val be one more than the prev slot val
+            win[head] = win[(head-1)%WINDOW_SIZE] + 1;
+            // then, roll the window
+            head = (head++)%WINDOW_SIZE;
+            
+            if (win[head] == ACKNOWLEDGED) {
+                return updateWindow(win, head, win[head]) + 1;
+            }
+            return ++packetsToSend;
+            
+        } else if (ack == win[head]) {
+        
+            // set the headslot val to be WINDOW_SIZE more than the current val
+            win[head] += WINDOW_SIZE;
+            // then, roll the window
+            head = (head++)%WINDOW_SIZE;
+            
+            if (win[head] == ACKNOWLEDGED) {
+                return updateWindow(win, head, win[head]) + 1;
+            }
+            return ++packetsToSend;
+            
+        } else {
+        
+            for (int i = 0; i < WINDOW_SIZE; i++) {
+                if (ack == win[i]) {
+                    win[i] = ACKNOWLEDGED;
+                    return 0;
+                }
+            }
+        }
+        
+        return 0;   
+    }
+    /*
+        Returns sequence number from data of acknowledgment packet
+    */
+    public static int
+    getAckNumber(DatagramPacket dp)
+    {
+	    ByteBuffer head = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
+        head.flip();
+        return head.getInt();
     }
     
 }
