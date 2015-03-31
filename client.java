@@ -5,11 +5,18 @@
 */
 
 import java.io.*;
+import java.nio.*;
+import java.nio.file.*;
+import java.nio.channels.*;
 import java.net.*;
+import java.lang.Integer;
+import java.util.EnumSet;
 
 class client {
 
-    public static final int SIZE = 1004;
+    public static final int DATA_SIZE = 1000;
+    public static final int HEAD_SIZE = 4;
+    public static final int PACK_SIZE = DATA_SIZE + HEAD_SIZE;
     public static final int TIMEOUT = 5000;
 
     public static void main(String args[]) {
@@ -22,12 +29,16 @@ class client {
            System.exit(0);
         }
         
+        DatagramSocket clientSocket = null;
+        InetAddress serverAddr = null;
+        SeekableByteChannel fileChannel = null;
+        int fileSize = 0;
+        int totalPackets = 0;
+        
         try {
         
             /* Get IP addr of the server */
-            
-            InetAddress serverAddr = null;
-            
+
 		    try {
 			    serverAddr = InetAddress.getByName(args[0]);
 			    
@@ -56,9 +67,9 @@ class client {
                 System.err.println("second argument: port must be from 1024 to 65535");
             }
             
-            /* Open a socket to the server */
+            /* Open a socket */
              
-            DatagramSocket clientSocket = new DatagramSocket();
+            clientSocket = new DatagramSocket();
             clientSocket.setSoTimeout(TIMEOUT);
         
             /* send request to the server */
@@ -71,75 +82,120 @@ class client {
             
             /* Receive confirmation or denial */
             
-            byte[] recvData = new byte[SIZE];
+            byte[] recvData = new byte[PACK_SIZE];
             
             DatagramPacket recvPacket = 
-                new DatagramPacket( recvData, recvData.length );
-            clientSocket.receive( recvPacket );
+                new DatagramPacket(recvData, PACK_SIZE);
+            clientSocket.receive(recvPacket);
             
-            String status = new String( recvPacket.getData() );
-            System.out.println( status );
+            String statusStr = new String(recvPacket.getData());
             
-            if (confirmation.contains("unable")) {
+            /* Exit if the file is unavailable */
+            
+            if (statusStr.startsWith("unable", 0)) {
+                System.out.println(statusStr);
                 clientSocket.close();
             	System.exit(1);
             }
+            
+            /* Get file size and number of expected packets */
+            
+            String[] status = statusStr.split(":");
+            
+
+            
+            try {
+                fileSize = Integer.parseInt(status[1]);
+                totalPackets = Integer.parseInt(status[2]);
+
+            } catch (NumberFormatException e) {
+                System.err.println(e);
+            }
+            
+            System.out.println(status[0]);
+            System.out.println("file size: " + status[1] + " bytes");
+            System.out.println("expected packets: " + status[2]);
 	        
             // Create a path for output file
             
-        	Path path = Paths.get("new-transferred-file.out");
+        	Path path = Paths.get(args[2] + ".out");
             
             // Create a SeekableByteChannel object for the path
 	        	
-	        SeekableByteChannel fileChannel = Files.newByteChannel(path, EnumSet.of(CREATE, WRITE));
+	       fileChannel = Files.newByteChannel(path,
+	            EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
             
-            int acknowledgmentNumber = 0;
+            int seqNumber = 0;
+            
+            for (;;) {
             
                 // receive packet of data
                 
-                recvPacket = 
-                    new DatagramPacket( recvData, recvData.length );
-                clientSocket.receive( recvPacket );
+                clientSocket.receive(recvPacket);
                 
                 // write the packet contents to the appropriate spot in SeekableByteChannel
                 
-                
-                acknowledgmentNumber = writeToChannel(recvPacket.getData(), fileChannel);
+                seqNumber = writeToChannel(recvPacket.getData(), fileChannel);
+                System.out.println("  + received packet " + seqNumber);
                 
                 // send acknowledgment number to server
                 
-                
+            }
                 
                 
             
-            clientSocket.close();
+            
         
         } catch (UnknownHostException e) {
             System.out.println("first argument: invalid IP address");
 		    System.exit(1);
 	    } catch (SocketTimeoutException e ) {
             System.err.println("No response from server.");
-            System.exit(1);
         } catch (SocketException e) {
             System.err.println("Socket error: " + e.getMessage());
-			System.exit(1);
         } catch (IOException e) {
 			System.err.println("IO error: " + e.getMessage());
-			System.exit(1);
 		}
+		
+		// truncate the file to the correct size
+		
+		try {
+		    if (fileChannel != null) {
+		        fileChannel.truncate((long)fileSize);
+		    }
+		} catch (IOException e) {
+		    System.err.println("Unable to truncate file: " + e.getMessage());
+		}
+		
+		
+		clientSocket.close();
         
     }
     
     /*
-        Returns the sequence number of the data being written
+        Write packet data to channel and return the sequence number
     */
     public static int
     writeToChannel(byte[] packet, SeekableByteChannel sbc)
     {
-        // put packet data into ByteBuffer bb
-        // store packet head into int x
-        // write bb to sbc at position (x*DATA_SIZE)
+        ByteBuffer data = ByteBuffer.allocate(DATA_SIZE).put(packet, HEAD_SIZE, DATA_SIZE);
+        data.flip();
         
+        ByteBuffer head = ByteBuffer.allocate(4).put(packet, 0, 4);
+        head.flip();
+        int sequence = head.getInt();
+        
+        try {
+            sbc.position(sequence*DATA_SIZE);
+            sbc.write(data);
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+        }
+        return sequence;
     }
 
 }
+
+
+
+

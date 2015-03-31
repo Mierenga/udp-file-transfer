@@ -8,6 +8,7 @@
 import java.io.*;
 import java.nio.*;
 import java.nio.file.*;
+import java.nio.channels.*;
 import java.net.*;
 import java.lang.Integer;
 import java.lang.Math.*;
@@ -44,151 +45,190 @@ class server {
         
         
         DatagramSocket serverSocket = null;
+        InetAddress clientAddr = null;
+        int clientPort = 0;
+        String fileName = null;
         
         try {
-        
             // Open a socket to listen
-            
-			serverSocket = new DatagramSocket(port);
-            
-            // Receive a file request 
-            
-            byte[] data = new byte[PACK_SIZE];
-
-            DatagramPacket recvPacket = 
-                new DatagramPacket(data,data.length);
-            serverSocket.receive(recvPacket);
-            
-            String fileName = new String(recvPacket.getData());
-            fileName = fileName.trim();
-
-            // Save client addr and port            
-            
-            InetAddress clientAddr = recvPacket.getAddress();
-            int clientPort = recvPacket.getPort();
-	        
-            // Create a path from the file name,
-            // can throw NoSuchFileException
-            
-        	Path path = Paths.get(fileName).toRealPath(); 
-            
-        	// Send and print CONFIRMATION of request
-        	
-        	serverSocket.send (
-        	    assembleStatusPacket (
-                    Files.exists(path), fileName, clientAddr, clientPort));
-        	
-        	// Create a SeekableByteChannel object for the path
-        	
-        	SeekableByteChannel fileChannel = Files.newByteChannel(path, EnumSet.of(READ));
-        	
-        	// setup the sliding window
-        	
-        	final int totalPackets = Math.ceil(fileChannel.size() / DATA_SIZE);
-        	int windowBottom = 0;
-        	int sequence = 0;
-        	
-            // Construct and send the first five packets
-            
-            for (int i = 0; i < 5; i++) {
-            
-                if (sequence < totalPackets) {
-                
-                    serverSocket.send (
-                        constructNextPacket (
-                            fileChannel, clientAddr, clientPort, sequence++));
-                }
-                
-            }
-	            
-            // listen for acknowledgments from client
-            
-            
-            // while (incomplete != 0) {
-    			// listen for any ack
-    			// parse ack for sequence number
-    			// find that sequence number in window array
-    			// increment the count
-    			// if (count > maxCount)
-    				// set window slot to null
-    				// decrement incomplete
-    			// else
-    				// replace the contents with loadWindow
-    				// send the packet
-    			// 
-    		// }
-	            
-	        	
-	        	
-	        	
-        } catch (NoSuchFileException x) {
         
-            // Send and print DENIAL of request
-            
-        	serverSocket.send(
-        	    assembleStatusPacket (
-                    false, fileName, clientAddr, clientPort));
-        	
+            serverSocket = new DatagramSocket(port);
+        
         } catch (SocketException e) {
-			System.err.println(e);
-			System.exit(1);
-		} catch (IOException e) {
-			System.err.println(e);
-			System.exit(1);
-		} catch (IllegalArgumentException e) {
-		    System.err.println(e);
-			System.exit(1);
-		}
+			    System.err.println(e);
+			    System.exit(1);
+        }
         
         
-        serverSocket.close();
+        for(;;) {
+        
+            try {
+
+                // Receive a file request 
+                
+                byte[] data = new byte[PACK_SIZE];
+
+                DatagramPacket recvPacket = 
+                    new DatagramPacket(data,data.length);
+                serverSocket.receive(recvPacket);
+                
+                fileName = new String(recvPacket.getData()).trim();
+
+                // Save client addr and port            
+                
+                clientAddr = recvPacket.getAddress();
+                clientPort = recvPacket.getPort();
+	            
+	            System.out.println("server received request for '" +
+	                fileName + "'" + " from " + clientAddr.toString() + " [" + clientPort + "]" );
+	            
+                // Create a path from the file name,
+                //   can throw NoSuchFileException
+                
+                
+            	Path path = Paths.get(fileName).toRealPath(); 
+                        
+            	if (!Files.exists(path)) {
+            	
+            	    serverSocket.send(
+            	        assembleDenialPacket(fileName, clientAddr, clientPort));
+                            
+            	} else {
+            	
+                	// Create a SeekableByteChannel object for the path
+                	
+                	SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
+                	
+                	// setup the sliding window
+                	
+                	double dFileSize = fileChannel.size();
+                	                	
+                	int totalPackets = (int) Math.ceil(dFileSize / DATA_SIZE);
+                    int fileSize = (int) dFileSize;
+                	
+                	serverSocket.send (
+            	        assembleConfirmPacket (
+                            fileName, fileSize, totalPackets, clientAddr, clientPort));
+                	
+                	
+                	
+                	int windowBottom = 0;
+                	int sequence = 0;
+                	
+                    // Construct and send the first five packets
+
+                    for (int i = 0; i < 5; i++) {
+                        
+                        if (sequence < totalPackets) {
+                            
+                            serverSocket.send(
+                                constructNextPacket(
+                                    fileChannel, clientAddr, clientPort, sequence++));
+                                    
+                            System.out.println("  + sent packet " + i);
+                        } else {
+                            break;
+                        }
+                        
+                    }
+	                    
+                    // listen for acknowledgments from client
+                    
+                    
+                    // while (incomplete != 0) {
+            			// listen for any ack
+            			
+            			//serverSocket.receive(recvPacket);
+            			
+            			// parse ack for sequence number
+            			// find that sequence number in window array
+            			// increment the count
+            			// if (count > maxCount)
+            				// set window slot to null
+            				// decrement incomplete
+            			// else
+            				// replace the contents with loadWindow
+            				// send the packet
+            			// 
+            		// }
+	                
+	            	
+	            }
+	            	
+            } catch (NoSuchFileException x) {
+            
+                // Send and print denial of request
+                try {
+                	serverSocket.send(
+                	    assembleDenialPacket(fileName, clientAddr, clientPort));
+                            
+            	} catch (IOException e) {
+            	    System.err.println(e);
+            	}
+            	
+            } catch (IOException e) {
+			    System.err.println(e);
+			    System.exit(1);
+		    } catch (IllegalArgumentException e) {
+		        System.err.println(e);
+			    System.exit(1);
+		    }
+        }
+        
+        //serverSocket.close();
     }
     
     /* 
-        Returns a DatagramPacket with request status information, ready to be sent
+        Returns a DatagramPacket with request confirmation information, ready to be sent
     */
     public static DatagramPacket
-    assembleStatusPacket (boolean exists, String fn, InetAddress addr, int port)
+    assembleConfirmPacket(String fn, int fs, int tp, InetAddress addr, int port)
     {
-        String msg = "";
-        if (exists) {
-            msg = new String("server received request for '" + fn + "'");
-            System.out.println(msg + " from "
-                + addr.toString() + " [" + port + "]" );
+        String msg = new String("server received request for '" + fn + "'");
+        System.out.println("  file size: " + fs);
+        System.out.println("  packets to send: " + tp);
+        msg += (":" + fs + ":" + tp + ":");
         	
-        } else {
-            msg = new String("unable to locate '" + fn + "' on server");
-        	System.out.println(msg);
-        	
-        }
     	byte[] data = msg.getBytes();
         	
-    	DatagramPacket pack =
-            new DatagramPacket(data, data.length, addr, port);
-            
-        return pack;
+    	return new DatagramPacket(data, data.length, addr, port);
+    }
+    
+    /* 
+        Returns a DatagramPacket with request denial information, ready to be sent
+    */
+    public static DatagramPacket
+    assembleDenialPacket(String fn, InetAddress addr, int port)
+    {
+        String msg = new String("unable to locate '" + fn + "' on server");
+        System.out.println("  - " + msg);
+    	byte[] data = msg.getBytes();
+    	return new DatagramPacket(data, data.length, addr, port);
     }
     
     /*
         Returns a DatagramPacket with 1000 bytes of file data, ready to be sent
     */
     public static DatagramPacket
-    contructNextPacket (SeekableByteChannel sbc, InetAddress addr, int port, int seq)
+    constructNextPacket(SeekableByteChannel sbc, InetAddress addr, int port, int seq)
     {
-        ByteBuffer buf = new ByteBuffer.allocate(DATA_SIZE);
-        
-        sbc.read(buf);
-        
+        ByteBuffer buf = ByteBuffer.allocate(DATA_SIZE);
+        try {
+            sbc.read(buf);
+        } catch (IOException e) {
+            System.err.println(e);
+        }
         byte[] data = new byte[PACK_SIZE];
         data = addHead(seq, buf);
         
-        DatagramPacket pack = new Datagram Packet(data, data.length, addr, port)
+        return new DatagramPacket(data, data.length, addr, port);
     }
     /*
+        Helper for constructNextPacket()
         Returns a byte array with header and data, ready to be loaded into a packet
     */
     public static byte[]
-    addHead(int seq, ByteBuffer data) (byte[] a, byte[] b)
+    addHead(int seq, ByteBuffer data)
     {
         byte[] packArr = new byte[PACK_SIZE];
         byte[] headArr = ByteBuffer.allocate(HEAD_SIZE).putInt(seq).array();
