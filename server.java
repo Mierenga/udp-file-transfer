@@ -10,8 +10,7 @@ import java.nio.*;
 import java.nio.file.*;
 import java.nio.channels.*;
 import java.net.*;
-import java.lang.Integer;
-import java.lang.Math.*;
+import java.lang.*;
 
 class server {
     
@@ -20,6 +19,12 @@ class server {
     public static final int PACK_SIZE = DATA_SIZE + HEAD_SIZE;
     public static final int WINDOW_SIZE = 5;
     public static final int ACKNOWLEDGED = -1;
+    public static final int TIMEOUT = 100; // in millis
+    
+    // timeSent[] is used for assuming packet loss.
+    // Everytime a packet is sent the time of sending should
+    // be saved in the appropriate offset of timeSent[].
+    public long timeSent[] = new int[WINDOW_SIZE];
     
     public static void main(String args[]) {
 
@@ -120,7 +125,7 @@ class server {
                 	int sequence = 0;
                 	int acknowledgment = 0;
                 	int ackCount = 0;
-                	int[] window = new int[5];
+                	int[] window = new int[WINDOW_SIZE];
                 	int head = 0;
                 	
                     // Construct and send the first five packets
@@ -134,7 +139,9 @@ class server {
                             serverSocket.send(
                                 constructNextPacket(
                                     fileChannel, clientAddr, clientPort, sequence++));
-                                    
+                            
+                            timeSent[i] = System.currentTimeMillis();
+
                             System.out.print("s:" + sequence + ", ");
                             window[i] = i;
                             
@@ -143,7 +150,12 @@ class server {
                         }
                         
                     }
-	                    
+	                
+	                // Open a TimoutThread to check for packet losses
+	                
+	                TimeoutThread timeoutThread = new TimeoutThread();
+	                
+	                
                     // listen for acknowledgments from client
                     
                     while (sequence < totalPackets || ackCount < totalPackets) {
@@ -245,17 +257,26 @@ class server {
         } catch (IOException e) {
             System.err.println(e);
         }
+        
+        
+        // compute the checkSum of the buf and seq here
+        computeChecksum(seq, buf);
+        
         byte[] data = new byte[PACK_SIZE];
-        data = addHead(seq, buf);
+        data = addHead(seq, checkSum, buf);
         
         return new DatagramPacket(data, data.length, addr, port);
     }
     /*
         Helper for constructNextPacket()
         Returns a byte array with header and data, ready to be loaded into a packet
+        Packet includes:
+            4 bytes of sequence number
+            (Up to) 20 bytes of checksum
+            1000 bytes data
     */
     public static byte[]
-    addHead(int seq, ByteBuffer data)
+    addHead(int seq, int checkSum, ByteBuffer data)
     {
         byte[] packArr = new byte[PACK_SIZE];
         byte[] headArr = ByteBuffer.allocate(HEAD_SIZE).putInt(seq).array();
@@ -266,7 +287,15 @@ class server {
         return packArr;
     }
     /*
-        Returns number of packets to send to client
+        Returns the checksum for the given seq# and data buffer
+    */
+    public static byte[]
+    computeChecksum(int seq, ByteBuffer buf)
+    {
+        
+    }
+    /*
+        Returns number of new packets to send to client
     */
     public static int
     updateWindow(int[] win, int head, int ack)
@@ -318,5 +347,52 @@ class server {
         head.flip();
         return head.getInt();
     }
-    
 }
+
+// TimoeoutThread is a helper thread that continuously
+// checks each of the values in timeSent[]:
+//   If more than TIMEOUT seconds has occurred since
+//   any timeSent, we should resend the packet
+//   in that slot of the window.
+    
+class TimeoutThread extends Thread {
+
+    InetAddress clientAddr = null;
+    int port;
+    int clientPort = 0;
+    SeekableByteChannel fileChannel;
+    int window[] = new int[WINDOW_SIZE];
+    long timeSent[] = new int[WINDOW_SIZE];
+    
+    TimeoutThread(int p, InetAddress a, int cp, SeekableByteChannel sbc,
+                    int[] w, long[] ts)
+    {
+        this.port = p+1;
+        this.fileChannel = sbc;
+        this.clientPort = cp;
+        this.clientAddr = a;
+        this.timeSent = ts;
+        this.window = s;
+    }
+    
+    public void run() {
+        
+        DatagramSocket socket = new DatagramSocket(port);
+        
+        for (int i = 0; i < WINDOW_SIZE; i++) {
+            if ((System.currentTimeMillis() - timeSent[i]) > TIMEOUT ) {
+            
+                // resend the packet with seq# in window[i]
+                
+                socket.send(
+                    constructNextPacket(
+                        fileChannel, clientAddr, clientPort, window[i]));
+                        
+                    
+                
+            }
+        }
+    }
+}
+
+

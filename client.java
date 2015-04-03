@@ -114,6 +114,7 @@ class client {
             System.out.println("file size: " + status[1] + " bytes");
             System.out.println("expected packets: " + status[2]);
 	        System.out.print("packet traffic: [ ");
+	        
             // Create a path for output file
             
         	Path path = Paths.get(args[2] + ".out");
@@ -122,6 +123,13 @@ class client {
 	        	
 	       fileChannel = Files.newByteChannel(path,
 	            EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
+            
+            // It is possible that we will receive a duplicate of
+            // some of the packets if the server did not receive the
+            // acknowledgment or assumed that the packet was lost when
+            // it really just took longer than his TIMEOUT.
+            // In this case, we should simply discard the second packet
+            // and resend the acknowledgment.
             
             int seqNumber = 0;
             
