@@ -4,7 +4,6 @@
     CIS 457: proj 3
 */
 
-
 import java.io.*;
 import java.nio.*;
 import java.nio.file.*;
@@ -21,13 +20,7 @@ class server {
     public static final int ACKNOWLEDGED = -1;
     public static final int TIMEOUT = 100; // in millis
     
-    // timeSent[] is used for assuming packet loss.
-    // Everytime a packet is sent the time of sending should
-    // be saved in the appropriate offset of timeSent[].
-    public long timeSent[] = new int[WINDOW_SIZE];
-    
     public static void main(String args[]) {
-
     
         /* Get port number from arg */
         
@@ -106,26 +99,29 @@ class server {
                 	
                 	SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
                 	
-                	// get info about the file
+                	// Get info about the file
                 	
                 	double dFileSize = fileChannel.size();
-                	                	
+
                 	int totalPackets = (int) Math.ceil(dFileSize / DATA_SIZE);
                     int fileSize = (int) dFileSize;
                 	
-                	// send the confirmation of request
+                	// Send the confirmation of request
                 	
                 	serverSocket.send (
             	        assembleConfirmPacket (
                             fileName, fileSize, totalPackets, clientAddr, clientPort));
 
-                    // setup the sliding window                    
+                    // Setup variables for sequencing and acknowledging                    
                     
-                	int windowBottom = 0;
                 	int sequence = 0;
                 	int acknowledgment = 0;
                 	int ackCount = 0;
-                	int[] window = new int[WINDOW_SIZE];
+                	
+                	// TODO to be converted into Window class
+                	Window window = new Window(WINDOW_SIZE);
+                	
+                	//int[] window = new int[WINDOW_SIZE];
                 	int head = 0;
                 	
                     // Construct and send the first five packets
@@ -138,12 +134,12 @@ class server {
                             
                             serverSocket.send(
                                 constructNextPacket(
-                                    fileChannel, clientAddr, clientPort, sequence++));
+                                    fileChannel, clientAddr, clientPort, sequence));
                             
-                            timeSent[i] = System.currentTimeMillis();
+                            window.updateTimeSent(i);
 
                             System.out.print("s:" + sequence + ", ");
-                            window[i] = i;
+                            sequence++;
                             
                         } else {
                             break;
@@ -151,9 +147,10 @@ class server {
                         
                     }
 	                
-	                // Open a TimoutThread to check for packet losses
+	                // Fire off a TimoutThread to check for packet losses
 	                
 	                TimeoutThread timeoutThread = new TimeoutThread();
+	                timeoutThread.start();
 	                
 	                
                     // listen for acknowledgments from client
@@ -171,20 +168,23 @@ class server {
                         
                         System.out.print("a:" + acknowledgment + ", ");
                         
-                        // update window with new acknowledgment
+                        // update window with new acknowledgment,
+                        //     find how many new packets to send from the return value
                         
-                        int packetsToSend = updateWindow(window, head, acknowledgment);
-                        head = (head+packetsToSend)%WINDOW_SIZE;
+                        int packetsToSend = window.update(acknowledgment);
                         
-                        // send new packets, if necessary
+                        // If necessary, send new packets, updating their time sent
                         
                         for (int i = 0; i < packetsToSend; i++) {
                             
                             serverSocket.send(
                                 constructNextPacket(
-                                    fileChannel, clientAddr, clientPort, sequence++));
-                                    
-                        System.out.print("s:" + sequence + ", ");
+                                    fileChannel, clientAddr, clientPort, sequence));
+                        
+                            updateTimeSent(sequence);
+                            
+                            System.out.print("s:" + sequence + ", ");
+                            sequence++;
                             
                         }
             	    }
@@ -214,7 +214,6 @@ class server {
 		    }
         }
         
-        //serverSocket.close();
     }
     
     /* 
@@ -246,7 +245,8 @@ class server {
     }
     
     /*
-        Returns a DatagramPacket with 1000 bytes of file data, ready to be sent
+        Returns a DatagramPacket with 1000 bytes of file data
+        and a complete header, ready to be sent
     */
     public static DatagramPacket
     constructNextPacket(SeekableByteChannel sbc, InetAddress addr, int port, int seq)
@@ -259,93 +259,54 @@ class server {
         }
         
         
-        // compute the checkSum of the buf and seq here
+        // TODO part 3: compute the checkSum of the buf and seq here
         computeChecksum(seq, buf);
         
         byte[] data = new byte[PACK_SIZE];
-        data = addHead(seq, checkSum, buf);
+        data = addHeader(seq, buf);
         
         return new DatagramPacket(data, data.length, addr, port);
     }
     /*
+        TODO part 3: include the checkSum in the header construction
+        
         Helper for constructNextPacket()
         Returns a byte array with header and data, ready to be loaded into a packet
         Packet includes:
             4 bytes of sequence number
-            (Up to) 20 bytes of checksum
+            TODO (Up to) 20 bytes of checksum
             1000 bytes data
     */
     public static byte[]
-    addHead(int seq, int checkSum, ByteBuffer data)
+    addHeader(int seq, ByteBuffer data)
     {
         byte[] packArr = new byte[PACK_SIZE];
-        byte[] headArr = ByteBuffer.allocate(HEAD_SIZE).putInt(seq).array();
+        byte[] headerArr = ByteBuffer.allocate(HEAD_SIZE).putInt(seq).array();
         
-        System.arraycopy(headArr, 0, packArr, 0, HEAD_SIZE);
+        System.arraycopy(headerArr, 0, packArr, 0, HEAD_SIZE);
         System.arraycopy(data.array(), 0, packArr, 4, DATA_SIZE);
         
         return packArr;
     }
     /*
+        TODO part 3
         Returns the checksum for the given seq# and data buffer
     */
     public static byte[]
     computeChecksum(int seq, ByteBuffer buf)
     {
-        
+        return null;
     }
-    /*
-        Returns number of new packets to send to client
-    */
-    public static int
-    updateWindow(int[] win, int head, int ack)
-    {
-        int packetsToSend = 0;
-        if (ack == ACKNOWLEDGED) {
-        
-            // set the headslot val be one more than the prev slot val
-            win[head] = win[(head-1)%WINDOW_SIZE] + 1;
-            // then, roll the window
-            head = (head++)%WINDOW_SIZE;
-            
-            if (win[head] == ACKNOWLEDGED) {
-                return updateWindow(win, head, win[head]) + 1;
-            }
-            return ++packetsToSend;
-            
-        } else if (ack == win[head]) {
-        
-            // set the headslot val to be WINDOW_SIZE more than the current val
-            win[head] += WINDOW_SIZE;
-            // then, roll the window
-            head = (head++)%WINDOW_SIZE;
-            
-            if (win[head] == ACKNOWLEDGED) {
-                return updateWindow(win, head, win[head]) + 1;
-            }
-            return ++packetsToSend;
-            
-        } else {
-        
-            for (int i = 0; i < WINDOW_SIZE; i++) {
-                if (ack == win[i]) {
-                    win[i] = ACKNOWLEDGED;
-                    return 0;
-                }
-            }
-        }
-        
-        return 0;   
-    }
+
     /*
         Returns sequence number from data of acknowledgment packet
     */
     public static int
     getAckNumber(DatagramPacket dp)
     {
-	    ByteBuffer head = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
-        head.flip();
-        return head.getInt();
+	    ByteBuffer ack = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
+        ack.flip();
+        return ack.getInt();
     }
 }
 
@@ -380,19 +341,161 @@ class TimeoutThread extends Thread {
         DatagramSocket socket = new DatagramSocket(port);
         
         for (int i = 0; i < WINDOW_SIZE; i++) {
-            if ((System.currentTimeMillis() - timeSent[i]) > TIMEOUT ) {
+            if ((System.currentTimeMillis() - getTimeSent(i)) > TIMEOUT ) {
             
-                // resend the packet with seq# in window[i]
+                int seqToSend = getSeqNumber(i);
                 
                 socket.send(
                     constructNextPacket(
-                        fileChannel, clientAddr, clientPort, window[i]));
+                        fileChannel, clientAddr, clientPort, seqToSend));
                         
-                    
+                updateTimeSent(seqToSend);
                 
             }
         }
     }
 }
+
+/* 
+    Window object is the sliding window that stores information about 
+*/
+
+public class Window {
+
+    int window[] = null;
+    long timeSent[] = null;
+    int head = 0;
+    int packetsToSend = 0;
+    int nextToSend = 0;
+    
+    /*
+        Construct and initialize the window object
+        Each slot is initialized to its array offset
+    */
+    public Window(int size) {
+        window = new int[size];
+        timeSent = new long[size];
+        for (int i = 0; i < size; i++) {
+            window[i] = i;
+        }
+    }
+    /*
+        update the time sent for a given sequence number found
+        in an arbitrary slot in the window
+    */
+    public synchronized void
+    updateTimeSent(seqNum) {
+        for (int i = 0; i < WINDOW_SIZE; i++) {
+            if (this.window[i] == seqNum) {
+                this.timeSent[i] = System.currentTimeMillis();
+                return;
+            }
+        }
+    }
+    /*
+        retreive the time last sent for a given slot in the window
+    */
+    public synchronized void
+    getTimeSent(int slot) {
+        for (int i = 0; i < WINDOW_SIZE; i++) {
+            if (this.window[i] == seqNum) {
+                this.timeSent[i] = System.currentTimeMillis();
+                return;
+            }
+        }
+    }
+    
+    /*
+        retreive the sequence number found in the given slot
+        in the window
+    */
+    public synchronized void
+    getSeqNumber(int slot) {
+        for (int i = 0; i < WINDOW_SIZE; i++) {
+            if (this.window[i] == seqNum) {
+                this.timeSent[i] = System.currentTimeMillis();
+                return;
+            }
+        }
+    }
+    
+    
+    
+    /* TODO : figure out the best of these two options:
+
+        1. the Window.update() function shouldn't return the
+           number of packets to send, it should update an internal member
+           that is released and reset when a new function is called from
+           the user class, indicating it will send all of those packets
+        2. the Window.update() function should return the number
+           of packets to send
+    */ 
+    /*
+        Returns number of new packets to send to client
+    */
+    public static int
+    update(int ack)
+    {
+        int packetsToSend = 0;
+        
+        // should only happen in recursive case: check to see if the new head has been
+        //    previously ACKNOWLEDGED. If it has it means we can send another packet,
+        //    roll the head up, and check again, otherwise we can return 
+        if (ack == ACKNOWLEDGED) {
+        
+            // set the headslot val to be one more than the prev slot val
+            //     (which is the one that was just acknowledged)
+            win[this.head] = win[(this.head-1)%WINDOW_SIZE] + 1;
+            // then, roll the head up
+            this.head = (this.head++)%WINDOW_SIZE;
+            
+            if (this.window[this.head] == ACKNOWLEDGED) {
+                return this.window.update(this.window[this.head]) + 1;
+            }
+            return ++packetsToSend;
+        
+        // if the ack matches the window's head, then we should send the next packet
+        //    and roll the head up, checking the new head to see if it has already been
+        //    acknowledged. 
+        } else if (ack == this.window[this.head]) {
+        
+            // set the headslot val to be WINDOW_SIZE more than the current val
+            this.window[this.head] += WINDOW_SIZE;
+            // then, roll the head up
+            this.head = (this.head++)%WINDOW_SIZE;
+            
+            if (this.window[this.head] == ACKNOWLEDGED) {
+                return this.window.update(this.window[this.head]) + 1;
+            }
+            return ++packetsToSend;
+            
+        // else the ack is somewhere else in the window so we should update it as ACKNOWLEDGED    
+        } else {
+        
+            for (int i = 0; i < WINDOW_SIZE; i++) {
+                if (ack == this.window[i]) {
+                    this.window[i] = ACKNOWLEDGED;
+                    return ;
+                }
+            }
+        }
+        this.head = (this.head+packetsToSend)%WINDOW_SIZE;
+        return;
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
