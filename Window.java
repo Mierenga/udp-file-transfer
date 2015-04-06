@@ -83,8 +83,7 @@ public class Window {
         // if the ack matches the window's head, then we should roll the head up,
         //   add 1 to the return count, and recursively check to see if the new head
         //   has already been Constants.ACKD.
-        System.out.println("\nhead: " + head);
-        printWindow();
+
         if (ack == window[head]) {
            
             // set window[head] to Constants.EMPTY

@@ -129,9 +129,8 @@ class client {
             int seqNumber = 0;
                 
             boolean[] packetsRcvd = new boolean[totalPackets];
-            boolean complete = false;
 
-            while (!complete) {
+            while (!checkForComplete(packetsRcvd)) {
                 // receive packet of data
                 
                 clientSocket.receive(recvPacket);
@@ -155,18 +154,6 @@ class client {
                 clientSocket.send(sendAck);
                 
                 System.out.print("a:" + seqNumber + ", ");
-                
-                int count = 0;
-                for (boolean a : packetsRcvd) {
-                    if (a == false) {
-                        break;
-                    } else {
-                        count++;
-                    }
-                }        
-                if (count == totalPackets) {
-                    complete = true;
-                }
 
             }
             
@@ -221,6 +208,23 @@ class client {
             System.err.println(e.getMessage());
         }
         return sequence;
+    }
+    
+    public static boolean
+    checkForComplete(boolean[] rcvd)
+    {
+        int count = 0;
+        for (boolean a : rcvd) {
+            if (!a) {
+                break;
+            } else {
+                count++;
+            }
+        }        
+        if (count == rcvd.length) {
+            return true;
+        }
+        return false;
     }
     
 }

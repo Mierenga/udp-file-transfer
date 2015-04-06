@@ -149,10 +149,9 @@ public class server {
 	                    
                     // listen for acknowledgments from client
                     
-                    boolean complete = false;
                     boolean[] acksRcvd = new boolean[totalPackets];
         
-                    while (!complete) {
+                    while (true) {
                         
             		    // listen for any ack
             		    
@@ -161,8 +160,13 @@ public class server {
             		    // parse ack for sequence number
                     			
             		    acknowledgment = getAckNumber(recvPacket);
-                        if (acksRcvd[acknowledgment] == false) {
-            	    	    acksRcvd[acknowledgment] = true;
+            		    acksRcvd[acknowledgment] = true;
+                        
+                        if (checkForComplete(acksRcvd)) {
+                            timeoutThread.kill();
+                            System.out.println("client acknowledged " +
+                                totalPackets + " of " + totalPackets + " packets]\n");
+                            break;
                         }
                             
                         System.out.print("a:" + acknowledgment + ", ");
@@ -170,9 +174,11 @@ public class server {
                         // update window with new acknowledgment,
                         //     find how many new packets to send from the return value
                         
+                        window.printWindow();
                         int packetsToSend = window.recvAck(acknowledgment);
                         window.printWindow();
-                        System.out.println("toSend: " + packetsToSend);
+                        
+                        System.out.println("#toSend: " + packetsToSend);
                         
                         // If necessary, send new packets and load them into the window
                         
@@ -188,25 +194,7 @@ public class server {
                             sequence++;
                             
                         }
-                        int count = 0;
-                        System.out.print("\nacksRcvd[");
-                        for (boolean a : acksRcvd) {
-                            if (!a) {
-                                System.out.print(a + ",");
-                                //break;
-                            } else {
-                                count++;
-                            }
-                        }
-                        System.out.println("]");
-                        if (count == totalPackets) {
-                        
-                            timeoutThread.kill();
-                            complete = true;
-                            System.out.println("client acknowledged " +
-                                count + " of " + totalPackets + " packets]\n");
 
-                        }
                     }
 	            	
 	            }
@@ -325,6 +313,24 @@ public class server {
         ack.flip();
         return ack.getInt();
     }
+    public static boolean
+    checkForComplete(boolean[] ackd)
+    {
+        int count = 0;
+        
+        for (boolean a : ackd) {
+            if (a) {
+                count++;
+            } else {
+                break;
+            }
+        }        
+        if (count == ackd.length) {
+            return true;
+        }
+        return false;
+    }
+    
 }
 
 // TimoeoutThread is a helper thread that continuously
