@@ -14,11 +14,6 @@ import java.util.EnumSet;
 
 class client {
 
-    public static final int DATA_SIZE = 1000;
-    public static final int HEAD_SIZE = 4;
-    public static final int PACK_SIZE = DATA_SIZE + HEAD_SIZE;
-    public static final int TIMEOUT = 5000;
-
     public static void main(String args[]) {
         
         if (args.length != 3) {
@@ -70,7 +65,7 @@ class client {
             /* Open a socket */
              
             clientSocket = new DatagramSocket();
-            clientSocket.setSoTimeout(TIMEOUT);
+            clientSocket.setSoTimeout(Constants.NO_RESPONSE_TIMEOUT);
         
             /* send request to the server */
             
@@ -82,10 +77,10 @@ class client {
             
             /* Receive confirmation or denial */
             
-            byte[] recvData = new byte[PACK_SIZE];
+            byte[] recvData = new byte[Constants.PACK_SIZE];
             
             DatagramPacket recvPacket = 
-                new DatagramPacket(recvData, PACK_SIZE);
+                new DatagramPacket(recvData, Constants.PACK_SIZE);
             clientSocket.receive(recvPacket);
             
             String statusStr = new String(recvPacket.getData());
@@ -127,7 +122,7 @@ class client {
             // It is possible that we will receive a duplicate of
             // some of the packets if the server did not receive the
             // acknowledgment or assumed that the packet was lost when
-            // it really just took longer than his TIMEOUT.
+            // it really just took longer than Constants.ACK_TIMEOUT.
             // In this case, we should simply discard the second packet
             // and resend the acknowledgment.
             
@@ -142,17 +137,17 @@ class client {
                 // write the packet contents to the appropriate spot in SeekableByteChannel
                 
                 seqNumber = writeToChannel(recvPacket.getData(), fileChannel);
-                System.out.print("r: " + seqNumber + ", ");
+                System.out.print("r:" + seqNumber + ", ");
                 
                 // send acknowledgment number to server
                 
-                byte[] ack = ByteBuffer.allocate(HEAD_SIZE).putInt(seqNumber).array();
+                byte[] ack = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seqNumber).array();
                 
                 DatagramPacket sendAck = 
                     new DatagramPacket(ack, ack.length, serverAddr, port);
                 clientSocket.send(sendAck);
                 
-                System.out.print("a: " + seqNumber + ", ");
+                System.out.print("a:" + seqNumber + ", ");
                 
             }
             
@@ -191,7 +186,7 @@ class client {
     public static int
     writeToChannel(byte[] packet, SeekableByteChannel sbc)
     {
-        ByteBuffer data = ByteBuffer.allocate(DATA_SIZE).put(packet, HEAD_SIZE, DATA_SIZE);
+        ByteBuffer data = ByteBuffer.allocate(Constants.DATA_SIZE).put(packet, Constants.HEAD_SIZE, Constants.DATA_SIZE);
         data.flip();
         
         ByteBuffer head = ByteBuffer.allocate(4).put(packet, 0, 4);
@@ -199,7 +194,7 @@ class client {
         int sequence = head.getInt();
         
         try {
-            sbc.position(sequence*DATA_SIZE);
+            sbc.position(sequence*Constants.DATA_SIZE);
             sbc.write(data);
         } catch (IOException e) {
             System.err.println(e.getMessage());

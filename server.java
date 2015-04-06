@@ -11,14 +11,11 @@ import java.nio.channels.*;
 import java.net.*;
 import java.lang.*;
 
-class server {
-    
-    public static final int DATA_SIZE = 1000;
-    public static final int HEAD_SIZE = 4;
-    public static final int PACK_SIZE = DATA_SIZE + HEAD_SIZE;
-    public static final int WINDOW_SIZE = 5;
-    public static final int ACKNOWLEDGED = -1;
-    public static final int TIMEOUT = 100; // in millis
+
+
+
+
+public class server {
     
     public static void main(String args[]) {
     
@@ -66,7 +63,7 @@ class server {
 
                 // Receive a file request 
                 
-                byte[] data = new byte[PACK_SIZE];
+                byte[] data = new byte[Constants.PACK_SIZE];
 
                 DatagramPacket recvPacket = 
                     new DatagramPacket(data,data.length);
@@ -103,7 +100,7 @@ class server {
                 	
                 	double dFileSize = fileChannel.size();
 
-                	int totalPackets = (int) Math.ceil(dFileSize / DATA_SIZE);
+                	int totalPackets = (int) Math.ceil(dFileSize / Constants.DATA_SIZE);
                     int fileSize = (int) dFileSize;
                 	
                 	// Send the confirmation of request
@@ -118,17 +115,16 @@ class server {
                 	int acknowledgment = 0;
                 	int ackCount = 0;
                 	
-                	// TODO to be converted into Window class
-                	Window window = new Window(WINDOW_SIZE);
+                	Window window = new Window(Constants.WINDOW_SIZE);
+                	window.printWindow();
                 	
-                	//int[] window = new int[WINDOW_SIZE];
                 	int head = 0;
                 	
                     // Construct and send the first five packets
 
                     System.out.print("packet traffic:\n[");
 
-                    for (int i = 0; i < WINDOW_SIZE; i++) {
+                    for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
                         
                         if (sequence < totalPackets) {
                             
@@ -136,7 +132,7 @@ class server {
                                 constructNextPacket(
                                     fileChannel, clientAddr, clientPort, sequence));
                             
-                            window.updateTimeSent(i);
+                            window.loadFirstEmpty(sequence);
 
                             System.out.print("s:" + sequence + ", ");
                             sequence++;
@@ -146,10 +142,10 @@ class server {
                         }
                         
                     }
-	                
+	                window.printWindow();
 	                // Fire off a TimoutThread to check for packet losses
 	                
-	                TimeoutThread timeoutThread = new TimeoutThread();
+	                TimeoutThread timeoutThread = new TimeoutThread(serverSocket, clientAddr, clientPort, fileChannel, window);
 	                timeoutThread.start();
 	                
 	                
@@ -171,9 +167,10 @@ class server {
                         // update window with new acknowledgment,
                         //     find how many new packets to send from the return value
                         
-                        int packetsToSend = window.update(acknowledgment);
+                        int packetsToSend = window.recvAck(acknowledgment);
+                        System.out.println("toSend: " + packetsToSend);
                         
-                        // If necessary, send new packets, updating their time sent
+                        // If necessary, send new packets and load them into the window
                         
                         for (int i = 0; i < packetsToSend; i++) {
                             
@@ -181,13 +178,15 @@ class server {
                                 constructNextPacket(
                                     fileChannel, clientAddr, clientPort, sequence));
                         
-                            updateTimeSent(sequence);
+                            window.loadFirstEmpty(sequence);
                             
                             System.out.print("s:" + sequence + ", ");
                             sequence++;
                             
                         }
             	    }
+            	    
+            	    timeoutThread.kill();
             	    
 	                System.out.println("client acknowledged " +
                             ackCount + " of " + totalPackets + " packets]\n");
@@ -251,7 +250,7 @@ class server {
     public static DatagramPacket
     constructNextPacket(SeekableByteChannel sbc, InetAddress addr, int port, int seq)
     {
-        ByteBuffer buf = ByteBuffer.allocate(DATA_SIZE);
+        ByteBuffer buf = ByteBuffer.allocate(Constants.DATA_SIZE);
         try {
             sbc.read(buf);
         } catch (IOException e) {
@@ -262,7 +261,7 @@ class server {
         // TODO part 3: compute the checkSum of the buf and seq here
         computeChecksum(seq, buf);
         
-        byte[] data = new byte[PACK_SIZE];
+        byte[] data = new byte[Constants.PACK_SIZE];
         data = addHeader(seq, buf);
         
         return new DatagramPacket(data, data.length, addr, port);
@@ -280,11 +279,11 @@ class server {
     public static byte[]
     addHeader(int seq, ByteBuffer data)
     {
-        byte[] packArr = new byte[PACK_SIZE];
-        byte[] headerArr = ByteBuffer.allocate(HEAD_SIZE).putInt(seq).array();
+        byte[] packArr = new byte[Constants.PACK_SIZE];
+        byte[] headerArr = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seq).array();
         
-        System.arraycopy(headerArr, 0, packArr, 0, HEAD_SIZE);
-        System.arraycopy(data.array(), 0, packArr, 4, DATA_SIZE);
+        System.arraycopy(headerArr, 0, packArr, 0, Constants.HEAD_SIZE);
+        System.arraycopy(data.array(), 0, packArr, 4, Constants.DATA_SIZE);
         
         return packArr;
     }
@@ -318,172 +317,67 @@ class server {
     
 class TimeoutThread extends Thread {
 
-    InetAddress clientAddr = null;
-    int port;
-    int clientPort = 0;
-    SeekableByteChannel fileChannel;
-    int window[] = new int[WINDOW_SIZE];
-    long timeSent[] = new int[WINDOW_SIZE];
     
-    TimeoutThread(int p, InetAddress a, int cp, SeekableByteChannel sbc,
-                    int[] w, long[] ts)
+    private volatile boolean isRunning = true;
+    
+    private DatagramSocket socket = null;
+    
+    private int port;
+    private SeekableByteChannel fileChannel;
+    private int clientPort;
+    private InetAddress clientAddr;
+    private Window window;
+    
+    
+    
+    public TimeoutThread(DatagramSocket sock, InetAddress a, 
+                            int p, SeekableByteChannel sbc, Window win)
     {
-        this.port = p+1;
+        this.socket = sock;
         this.fileChannel = sbc;
-        this.clientPort = cp;
+        this.clientPort = p;
         this.clientAddr = a;
-        this.timeSent = ts;
-        this.window = s;
+        this.window = win;
     }
     
-    public void run() {
+    public void
+    run() {
+        while (isRunning) {
         
-        DatagramSocket socket = new DatagramSocket(port);
-        
-        for (int i = 0; i < WINDOW_SIZE; i++) {
-            if ((System.currentTimeMillis() - getTimeSent(i)) > TIMEOUT ) {
-            
-                int seqToSend = getSeqNumber(i);
-                
-                socket.send(
-                    constructNextPacket(
-                        fileChannel, clientAddr, clientPort, seqToSend));
+            try {
+
+                for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
+                    if ((System.currentTimeMillis() - window.getTimeSent(i)) > 
+                            Constants.ACK_TIMEOUT ) {
+                    
+                        int sequence = window.getSeqNumber(i);
                         
-                updateTimeSent(seqToSend);
-                
-            }
-        }
-    }
-}
-
-/* 
-    Window object is the sliding window that stores information about 
-*/
-
-public class Window {
-
-    int window[] = null;
-    long timeSent[] = null;
-    int head = 0;
-    int packetsToSend = 0;
-    int nextToSend = 0;
-    
-    /*
-        Construct and initialize the window object
-        Each slot is initialized to its array offset
-    */
-    public Window(int size) {
-        window = new int[size];
-        timeSent = new long[size];
-        for (int i = 0; i < size; i++) {
-            window[i] = i;
-        }
-    }
-    /*
-        update the time sent for a given sequence number found
-        in an arbitrary slot in the window
-    */
-    public synchronized void
-    updateTimeSent(seqNum) {
-        for (int i = 0; i < WINDOW_SIZE; i++) {
-            if (this.window[i] == seqNum) {
-                this.timeSent[i] = System.currentTimeMillis();
-                return;
-            }
-        }
-    }
-    /*
-        retreive the time last sent for a given slot in the window
-    */
-    public synchronized void
-    getTimeSent(int slot) {
-        for (int i = 0; i < WINDOW_SIZE; i++) {
-            if (this.window[i] == seqNum) {
-                this.timeSent[i] = System.currentTimeMillis();
-                return;
-            }
-        }
-    }
-    
-    /*
-        retreive the sequence number found in the given slot
-        in the window
-    */
-    public synchronized void
-    getSeqNumber(int slot) {
-        for (int i = 0; i < WINDOW_SIZE; i++) {
-            if (this.window[i] == seqNum) {
-                this.timeSent[i] = System.currentTimeMillis();
-                return;
-            }
-        }
-    }
-    
-    
-    
-    /* TODO : figure out the best of these two options:
-
-        1. the Window.update() function shouldn't return the
-           number of packets to send, it should update an internal member
-           that is released and reset when a new function is called from
-           the user class, indicating it will send all of those packets
-        2. the Window.update() function should return the number
-           of packets to send
-    */ 
-    /*
-        Returns number of new packets to send to client
-    */
-    public static int
-    update(int ack)
-    {
-        int packetsToSend = 0;
-        
-        // should only happen in recursive case: check to see if the new head has been
-        //    previously ACKNOWLEDGED. If it has it means we can send another packet,
-        //    roll the head up, and check again, otherwise we can return 
-        if (ack == ACKNOWLEDGED) {
-        
-            // set the headslot val to be one more than the prev slot val
-            //     (which is the one that was just acknowledged)
-            win[this.head] = win[(this.head-1)%WINDOW_SIZE] + 1;
-            // then, roll the head up
-            this.head = (this.head++)%WINDOW_SIZE;
-            
-            if (this.window[this.head] == ACKNOWLEDGED) {
-                return this.window.update(this.window[this.head]) + 1;
-            }
-            return ++packetsToSend;
-        
-        // if the ack matches the window's head, then we should send the next packet
-        //    and roll the head up, checking the new head to see if it has already been
-        //    acknowledged. 
-        } else if (ack == this.window[this.head]) {
-        
-            // set the headslot val to be WINDOW_SIZE more than the current val
-            this.window[this.head] += WINDOW_SIZE;
-            // then, roll the head up
-            this.head = (this.head++)%WINDOW_SIZE;
-            
-            if (this.window[this.head] == ACKNOWLEDGED) {
-                return this.window.update(this.window[this.head]) + 1;
-            }
-            return ++packetsToSend;
-            
-        // else the ack is somewhere else in the window so we should update it as ACKNOWLEDGED    
-        } else {
-        
-            for (int i = 0; i < WINDOW_SIZE; i++) {
-                if (ack == this.window[i]) {
-                    this.window[i] = ACKNOWLEDGED;
-                    return ;
+                        socket.send(
+                            server.constructNextPacket(
+                                fileChannel, clientAddr, clientPort, sequence));
+                                
+                        window.updateTimeSent(sequence);
+                        
+                    }
                 }
+                
+            } catch (SocketException x) {
+                System.err.println("Unable to use timeout " + x);
+            } catch (IOException x) {
+                System.err.println(x);
             }
+            
         }
-        this.head = (this.head+packetsToSend)%WINDOW_SIZE;
-        return;
     }
-
+    
+    public void
+    kill() {
+        isRunning = false;
+    }
+    
 }
+
+
 
 
 
