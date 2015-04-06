@@ -155,7 +155,8 @@ public class server {
                     
     			// listen for any ack
             	System.out.println("\nlistening..");		
-    			serverSocket.receive(recvPacket);
+    			System.out.flush();
+                serverSocket.receive(recvPacket);
                 System.out.println("received");
     			// parse ack for sequence number
             			
