@@ -89,37 +89,37 @@ public class server {
                             
             	} else {
             	
-                // Create a SeekableByteChannel object for the path
-                	
-		    SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
-                	
-		    // Get info about the file
-                	
-		    double dFileSize = fileChannel.size();
+                    // Create a SeekableByteChannel object for the path
+                        	
+		            SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
+                        	
+		            // Get info about the file
+                        	
+		            double dFileSize = fileChannel.size();
 
-		    int totalPackets = (int) Math.ceil(dFileSize / Constants.DATA_SIZE);
-            int fileSize = (int) dFileSize;
-                	
-		    // Send the confirmation of request
-                	
-		    serverSocket.send (
-                assembleConfirmPacket (
-                    fileName, fileSize, totalPackets, clientAddr, clientPort));
+		            int totalPackets = (int) Math.ceil(dFileSize / Constants.DATA_SIZE);
+                    int fileSize = (int) dFileSize;
+                        	
+		            // Send the confirmation of request
+                        	
+		            serverSocket.send (
+                        assembleConfirmPacket (
+                            fileName, fileSize, totalPackets, clientAddr, clientPort));
 
-            // Setup variables for sequencing and acknowledging                    
-                    
-		    int sequence = 0;
-		    int acknowledgment = 0;
-		    int ackCount = 0;
-                	
-            Window window = new Window(Constants.WINDOW_SIZE);
-		    window.printWindow();
-                	
-            int head = 0;
-                	
-            // Construct and send the first five packets
+                    // Setup variables for sequencing and acknowledging                    
+                            
+		            int sequence = 0;
+		            int acknowledgment = 0;
+		            int ackCount = 0;
+                        	
+                    Window window = new Window(Constants.WINDOW_SIZE);
+		            window.printWindow();
+                        	
+                    int head = 0;
+                        	
+                    // Construct and send the first five packets
 
-            System.out.print("packet traffic:\n[");
+                    System.out.print("packet traffic:\n[");
 
                     for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
                         
@@ -139,32 +139,32 @@ public class server {
                         }
                         
                     }
-                window.printWindow();
-                // Fire off a TimoutThread to check for packet losses
-	                
-                TimeoutThread timeoutThread = new TimeoutThread(serverSocket, clientAddr, clientPort, fileChannel, window);
-                timeoutThread.start();
-	                
-	                
-                // listen for acknowledgments from client
-                
-                boolean complete = false;
-                boolean[] acksRcvd = new boolean[totalPackets];
-    
-                while (!complete) {
                     
-    			// listen for any ack
-            	System.out.println("\nlistening..");		
-    			System.out.flush();
-                serverSocket.receive(recvPacket);
-                System.out.println("received");
-    			// parse ack for sequence number
-            			
-    			acknowledgment = getAckNumber(recvPacket);
-                if (acksRcvd[acknowledgment] == false) {
-    			    acksRcvd[acknowledgment] = true;
-                }
+                    window.printWindow();
+                    // Fire off a TimoutThread to check for packet losses
+	                    
+                    TimeoutThread timeoutThread = new TimeoutThread(serverSocket, clientAddr, clientPort, fileChannel, window);
+                    timeoutThread.start();
+	                    
+	                    
+                    // listen for acknowledgments from client
+                    
+                    boolean complete = false;
+                    boolean[] acksRcvd = new boolean[totalPackets];
+        
+                    while (!complete) {
                         
+            		    // listen for any ack
+            		    
+                        serverSocket.receive(recvPacket);
+                        
+            		    // parse ack for sequence number
+                    			
+            		    acknowledgment = getAckNumber(recvPacket);
+                        if (acksRcvd[acknowledgment] == false) {
+            	    	    acksRcvd[acknowledgment] = true;
+                        }
+                            
                         System.out.print("a:" + acknowledgment + ", ");
                         
                         // update window with new acknowledgment,
@@ -177,7 +177,7 @@ public class server {
                         // If necessary, send new packets and load them into the window
                         
                         for (int i = 0; i < packetsToSend; i++) {
-			
+		
                             serverSocket.send(
                                 constructNextPacket(
                                     fileChannel, clientAddr, clientPort, sequence));
@@ -188,25 +188,23 @@ public class server {
                             sequence++;
                             
                         }
-                        System.out.println("A");
                         int count = 0;
-                        for (int i = 0; i < totalPackets; i++) {
-                            if (!acksRcvd[i]) {
-                                return;
+                        for (boolean a : acksRcvd) {
+                            if (!a) {
+                                break;
                             } else {
                                 count++;
                             }
                         }
                         if (count == totalPackets) {
+                        
+                            timeoutThread.kill();
                             complete = true;
+                            System.out.println("client acknowledged " +
+                                count + " of " + totalPackets + " packets]\n");
+
                         }
-                        System.out.println("B");
                     }
-            	    
-            	    timeoutThread.kill();
-            	    
-	                System.out.println("client acknowledged " +
-                            ackCount + " of " + totalPackets + " packets]\n");
 	            	
 	            }
 	            	
