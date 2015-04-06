@@ -73,8 +73,8 @@ public class server {
                 clientAddr = recvPacket.getAddress();
                 clientPort = recvPacket.getPort();
 	            
-		System.out.println("server received request for '" +
-	                fileName + "'" + " from " + clientAddr.toString() + " [" + clientPort + "]" );
+                System.out.println("server received request for '" +
+                    fileName + "'" + " from " + clientAddr.toString() + " [" + clientPort + "]" );
 	            
                 // Create a path from the file name,
                 //   can throw NoSuchFileException
@@ -89,7 +89,7 @@ public class server {
                             
             	} else {
             	
-		    // Create a SeekableByteChannel object for the path
+                // Create a SeekableByteChannel object for the path
                 	
 		    SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
                 	
@@ -103,23 +103,23 @@ public class server {
 		    // Send the confirmation of request
                 	
 		    serverSocket.send (
-		    assembleConfirmPacket (
-		    fileName, fileSize, totalPackets, clientAddr, clientPort));
+                assembleConfirmPacket (
+                    fileName, fileSize, totalPackets, clientAddr, clientPort));
 
-                    // Setup variables for sequencing and acknowledging                    
+            // Setup variables for sequencing and acknowledging                    
                     
 		    int sequence = 0;
 		    int acknowledgment = 0;
 		    int ackCount = 0;
                 	
-    		    Window window = new Window(Constants.WINDOW_SIZE);
+            Window window = new Window(Constants.WINDOW_SIZE);
 		    window.printWindow();
                 	
-	    	    int head = 0;
+            int head = 0;
                 	
-                    // Construct and send the first five packets
+            // Construct and send the first five packets
 
-                    System.out.print("packet traffic:\n[");
+            System.out.print("packet traffic:\n[");
 
                     for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
                         
@@ -139,16 +139,19 @@ public class server {
                         }
                         
                     }
-	                window.printWindow();
-	                // Fire off a TimoutThread to check for packet losses
+                window.printWindow();
+                // Fire off a TimoutThread to check for packet losses
 	                
-	                TimeoutThread timeoutThread = new TimeoutThread(serverSocket, clientAddr, clientPort, fileChannel, window);
-	                timeoutThread.start();
+                TimeoutThread timeoutThread = new TimeoutThread(serverSocket, clientAddr, clientPort, fileChannel, window);
+                timeoutThread.start();
 	                
 	                
-                    // listen for acknowledgments from client
-                    
-                    while (sequence < totalPackets || ackCount < totalPackets) {
+                // listen for acknowledgments from client
+                
+                boolean complete = false;
+                boolean[] acksRcvd = new boolean[totalPackets];
+    
+                while (!complete) {
                     
     			// listen for any ack
             			
@@ -157,24 +160,26 @@ public class server {
     			// parse ack for sequence number
             			
     			acknowledgment = getAckNumber(recvPacket);
-    			ackCount++;
+                if (acksRcvd[acknowledgment] == false) {
+    			    acksRcvd[acknowledgment] = true;
+                }
                         
-			System.out.print("a:" + acknowledgment + ", ");
+                        System.out.print("a:" + acknowledgment + ", ");
                         
-	    		// update window with new acknowledgment,
-	    		//     find how many new packets to send from the return value
+                        // update window with new acknowledgment,
+                        //     find how many new packets to send from the return value
                         
-	    		int packetsToSend = window.recvAck(acknowledgment);
-	    		window.printWindow();
-	    		System.out.println("toSend: " + packetsToSend);
+                        int packetsToSend = window.recvAck(acknowledgment);
+                        window.printWindow();
+                        System.out.println("toSend: " + packetsToSend);
                         
-	    		// If necessary, send new packets and load them into the window
+                        // If necessary, send new packets and load them into the window
                         
-	    		for (int i = 0; i < packetsToSend; i++) {
+                        for (int i = 0; i < packetsToSend; i++) {
 			
-	    		    serverSocket.send(
-	    			constructNextPacket(
-	    			    fileChannel, clientAddr, clientPort, sequence));
+                            serverSocket.send(
+                                constructNextPacket(
+                                    fileChannel, clientAddr, clientPort, sequence));
                         
                             window.loadFirstEmpty(sequence);
                             
@@ -182,7 +187,18 @@ public class server {
                             sequence++;
                             
                         }
-            	    }
+                        int count = 0;
+                        for (boolean a : acksRcvd) {
+                            if (a == false) {
+                                return;
+                            } else {
+                                count++;
+                            }
+                        }
+                        if (count == totalPackets) {
+                            complete = true;
+                        }
+                    }
             	    
             	    timeoutThread.kill();
             	    
