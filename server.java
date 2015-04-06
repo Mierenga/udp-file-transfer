@@ -183,7 +183,9 @@ public class server {
                         // If necessary, send new packets and load them into the window
                         
                         for (int i = 0; i < packetsToSend; i++) {
-		
+		                    if (sequence >= totalPackets) {
+		                        break;
+		                    }
                             serverSocket.send(
                                 constructNextPacket(
                                     fileChannel, clientAddr, clientPort, sequence));
