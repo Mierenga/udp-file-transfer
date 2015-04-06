@@ -189,13 +189,16 @@ public class server {
                             
                         }
                         int count = 0;
+                        System.out.print("\nacksRcvd[");
                         for (boolean a : acksRcvd) {
                             if (!a) {
-                                break;
+                                System.out.print(a + ",");
+                                //break;
                             } else {
                                 count++;
                             }
                         }
+                        System.out.println("]");
                         if (count == totalPackets) {
                         
                             timeoutThread.kill();
