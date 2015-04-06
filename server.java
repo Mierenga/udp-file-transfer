@@ -190,8 +190,8 @@ public class server {
                         }
                         System.out.println("A");
                         int count = 0;
-                        for (boolean a : acksRcvd) {
-                            if (!a) {
+                        for (int i == 0; i < totalPackets; i++) {
+                            if (!acksRcvd[i]) {
                                 return;
                             } else {
                                 count++;
