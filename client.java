@@ -127,9 +127,11 @@ class client {
             // and resend the acknowledgment.
             
             int seqNumber = 0;
-            
-            for (int i = 0; i < totalPackets; i++) {
-            
+                
+            boolean[] packetsRcvd = new boolean[totalPackets];
+            boolean complete = false;
+
+            while (!complete) {
                 // receive packet of data
                 
                 clientSocket.receive(recvPacket);
@@ -137,6 +139,11 @@ class client {
                 // write the packet contents to the appropriate spot in SeekableByteChannel
                 
                 seqNumber = writeToChannel(recvPacket.getData(), fileChannel);
+                
+                if (!packetsRcvd[seqNumber]) {
+                    packetsRcvd[seqNumber] = true;
+                }
+
                 System.out.print("r:" + seqNumber + ", ");
                 
                 // send acknowledgment number to server
@@ -149,6 +156,18 @@ class client {
                 
                 System.out.print("a:" + seqNumber + ", ");
                 
+                int count = 0;
+                for (boolean a : packetsRcvd) {
+                    if (a == false) {
+                        break;
+                    } else {
+                        count++;
+                    }
+                }        
+                if (count == totalPackets) {
+                    complete = true;
+                }
+
             }
             
             System.out.println("received and acknowledged all packets ]");
