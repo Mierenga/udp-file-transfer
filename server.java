@@ -187,9 +187,10 @@ public class server {
                             sequence++;
                             
                         }
+                        System.out.println("A");
                         int count = 0;
                         for (boolean a : acksRcvd) {
-                            if (a == false) {
+                            if (!a) {
                                 return;
                             } else {
                                 count++;
@@ -198,6 +199,7 @@ public class server {
                         if (count == totalPackets) {
                             complete = true;
                         }
+                        System.out.println("B");
                     }
             	    
             	    timeoutThread.kill();
