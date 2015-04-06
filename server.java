@@ -98,7 +98,7 @@ public class server {
 		    double dFileSize = fileChannel.size();
 
 		    int totalPackets = (int) Math.ceil(dFileSize / Constants.DATA_SIZE);
-                    int fileSize = (int) dFileSize;
+            int fileSize = (int) dFileSize;
                 	
 		    // Send the confirmation of request
                 	
