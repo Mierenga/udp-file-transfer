@@ -21,7 +21,7 @@ class client {
                                "\t1st arg : IP address of server\n" +
                                "\t2nd arg : port of server\n" + 
                                "\t3rd arg : name of file to obtain");
-           System.exit(0);
+            System.exit(0);
         }
         
         DatagramSocket clientSocket = null;
@@ -34,14 +34,14 @@ class client {
         
             /* Get IP addr of the server */
 
-		    try {
-			    serverAddr = InetAddress.getByName(args[0]);
-			    
-		    } catch (ArrayIndexOutOfBoundsException x) {
-			    System.out.println("first argument: invalid IP address");
-			    System.exit(0);
-	        } 
-	        
+            try {
+                serverAddr = InetAddress.getByName(args[0]);
+                            
+            } catch (ArrayIndexOutOfBoundsException x) {
+                System.out.println("first argument: invalid IP address");
+                System.exit(0);
+            } 
+                
             /* Get port of the server */
             
             int port = 0;
@@ -72,7 +72,7 @@ class client {
             byte[] filenameData = args[2].getBytes();
             
             DatagramPacket sendPacket = 
-                new DatagramPacket( filenameData, filenameData.length, serverAddr, port );
+                new DatagramPacket(filenameData, filenameData.length, serverAddr, port);
             clientSocket.send(sendPacket);
             
             /* Receive confirmation or denial */
@@ -90,7 +90,7 @@ class client {
             if (statusStr.startsWith("unable", 0)) {
                 System.out.println(statusStr);
                 clientSocket.close();
-            	System.exit(1);
+                System.exit(1);
             }
             
             /* Get file size and number of expected packets */
@@ -108,16 +108,16 @@ class client {
             System.out.println(status[0]);
             System.out.println("file size: " + status[1] + " bytes");
             System.out.println("expected packets: " + status[2]);
-	        System.out.print("packet traffic: [ ");
-	        
+            System.out.print("packet traffic: [ ");
+                
             // Create a path for output file
             
-        	Path path = Paths.get(args[2] + ".out");
+            Path path = Paths.get(args[2] + ".out");
             
             // Create a SeekableByteChannel object for the path
-	        	
-	       fileChannel = Files.newByteChannel(path,
-	            EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
+                        
+            fileChannel = Files.newByteChannel(path,
+                EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
             
             // It is possible that we will receive a duplicate of
             // some of the packets if the server did not receive the
@@ -156,27 +156,27 @@ class client {
             
         } catch (UnknownHostException e) {
             System.out.println("first argument: invalid IP address");
-		    System.exit(1);
-	    } catch (SocketTimeoutException e ) {
+            System.exit(1);
+        } catch (SocketTimeoutException e ) {
             System.err.println("No response from server.");
         } catch (SocketException e) {
             System.err.println("Socket error: " + e.getMessage());
         } catch (IOException e) {
-			System.err.println("IO error: " + e.getMessage());
-		}
-		
-		// truncate the file to the correct size
-		
-		try {
-		    if (fileChannel != null) {
-		        fileChannel.truncate((long)fileSize);
-		    }
-		} catch (IOException e) {
-		    System.err.println("Unable to truncate file: " + e.getMessage());
-		}
-		
-		
-		clientSocket.close();
+            System.err.println("IO error: " + e.getMessage());
+        }
+                
+        // truncate the file to the correct size
+                
+        try {
+            if (fileChannel != null) {
+                fileChannel.truncate((long)fileSize);
+            }
+        } catch (IOException e) {
+            System.err.println("Unable to truncate file: " + e.getMessage());
+        }
+                
+                
+        clientSocket.close();
         
     }
     
@@ -186,7 +186,8 @@ class client {
     public static int
     writeToChannel(byte[] packet, SeekableByteChannel sbc)
     {
-        ByteBuffer data = ByteBuffer.allocate(Constants.DATA_SIZE).put(packet, Constants.HEAD_SIZE, Constants.DATA_SIZE);
+        ByteBuffer data = ByteBuffer.allocate(Constants.DATA_SIZE).
+                              put(packet, Constants.HEAD_SIZE, Constants.DATA_SIZE);
         data.flip();
         
         ByteBuffer head = ByteBuffer.allocate(4).put(packet, 0, 4);
@@ -194,6 +195,7 @@ class client {
         int sequence = head.getInt();
         
         try {
+            System.err.println("seq to write to: " + sequence);
             sbc.position(sequence*Constants.DATA_SIZE);
             sbc.write(data);
         } catch (IOException e) {
@@ -203,11 +205,4 @@ class client {
     }
     
 }
-
-
-
-
-
-
-
 

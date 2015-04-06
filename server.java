@@ -322,7 +322,6 @@ class TimeoutThread extends Thread {
     
     private DatagramSocket socket = null;
     
-    private int port;
     private SeekableByteChannel fileChannel;
     private int clientPort;
     private InetAddress clientAddr;
