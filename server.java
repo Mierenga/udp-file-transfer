@@ -190,7 +190,7 @@ public class server {
                         }
                         System.out.println("A");
                         int count = 0;
-                        for (int i == 0; i < totalPackets; i++) {
+                        for (int i = 0; i < totalPackets; i++) {
                             if (!acksRcvd[i]) {
                                 return;
                             } else {
