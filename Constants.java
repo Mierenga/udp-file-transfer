@@ -9,6 +9,6 @@ public class Constants {
     public static final int WINDOW_SIZE         = 5;
     public static final int ACKD                = -1;
     public static final int EMPTY               = -2;
-    public static final int ACK_TIMEOUT         = 65535; // in millis
+    public static final int ACK_TIMEOUT         = 1000; // in millis
 
 }

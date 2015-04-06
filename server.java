@@ -12,9 +12,6 @@ import java.net.*;
 import java.lang.*;
 
 
-
-
-
 public class server {
     
     public static void main(String args[]) {
@@ -52,8 +49,8 @@ public class server {
             serverSocket = new DatagramSocket(port);
         
         } catch (SocketException e) {
-			    System.err.println(e);
-			    System.exit(1);
+	    System.err.println(e);
+	    System.exit(1);
         }
         
         
@@ -76,7 +73,7 @@ public class server {
                 clientAddr = recvPacket.getAddress();
                 clientPort = recvPacket.getPort();
 	            
-	            System.out.println("server received request for '" +
+		System.out.println("server received request for '" +
 	                fileName + "'" + " from " + clientAddr.toString() + " [" + clientPort + "]" );
 	            
                 // Create a path from the file name,
@@ -92,33 +89,33 @@ public class server {
                             
             	} else {
             	
-                	// Create a SeekableByteChannel object for the path
+		    // Create a SeekableByteChannel object for the path
                 	
-                	SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
+		    SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
                 	
-                	// Get info about the file
+		    // Get info about the file
                 	
-                	double dFileSize = fileChannel.size();
+		    double dFileSize = fileChannel.size();
 
-                	int totalPackets = (int) Math.ceil(dFileSize / Constants.DATA_SIZE);
+		    int totalPackets = (int) Math.ceil(dFileSize / Constants.DATA_SIZE);
                     int fileSize = (int) dFileSize;
                 	
-                	// Send the confirmation of request
+		    // Send the confirmation of request
                 	
-                	serverSocket.send (
-            	        assembleConfirmPacket (
-                            fileName, fileSize, totalPackets, clientAddr, clientPort));
+		    serverSocket.send (
+		    assembleConfirmPacket (
+		    fileName, fileSize, totalPackets, clientAddr, clientPort));
 
                     // Setup variables for sequencing and acknowledging                    
                     
-                	int sequence = 0;
-                	int acknowledgment = 0;
-                	int ackCount = 0;
+		    int sequence = 0;
+		    int acknowledgment = 0;
+		    int ackCount = 0;
                 	
-                	Window window = new Window(Constants.WINDOW_SIZE);
-                	window.printWindow();
+    		    Window window = new Window(Constants.WINDOW_SIZE);
+		    window.printWindow();
                 	
-                	int head = 0;
+	    	    int head = 0;
                 	
                     // Construct and send the first five packets
 
@@ -153,31 +150,31 @@ public class server {
                     
                     while (sequence < totalPackets || ackCount < totalPackets) {
                     
-            			// listen for any ack
+    			// listen for any ack
             			
-            			serverSocket.receive(recvPacket);
+    			serverSocket.receive(recvPacket);
             			
-            			// parse ack for sequence number
+    			// parse ack for sequence number
             			
-            			acknowledgment = getAckNumber(recvPacket);
-                        ackCount++;
+    			acknowledgment = getAckNumber(recvPacket);
+    			ackCount++;
                         
-                        System.out.print("a:" + acknowledgment + ", ");
+			System.out.print("a:" + acknowledgment + ", ");
                         
-                        // update window with new acknowledgment,
-                        //     find how many new packets to send from the return value
+	    		// update window with new acknowledgment,
+	    		//     find how many new packets to send from the return value
                         
-                        int packetsToSend = window.recvAck(acknowledgment);
-                        window.printWindow();
-			System.out.println("toSend: " + packetsToSend);
+	    		int packetsToSend = window.recvAck(acknowledgment);
+	    		window.printWindow();
+	    		System.out.println("toSend: " + packetsToSend);
                         
-                        // If necessary, send new packets and load them into the window
+	    		// If necessary, send new packets and load them into the window
                         
-                        for (int i = 0; i < packetsToSend; i++) {
-                            
-                            serverSocket.send(
-                                constructNextPacket(
-                                    fileChannel, clientAddr, clientPort, sequence));
+	    		for (int i = 0; i < packetsToSend; i++) {
+			
+	    		    serverSocket.send(
+	    			constructNextPacket(
+	    			    fileChannel, clientAddr, clientPort, sequence));
                         
                             window.loadFirstEmpty(sequence);
                             
@@ -198,20 +195,20 @@ public class server {
             
                 // Send and print denial of request
                 try {
-                	serverSocket.send(
-                	    assembleDenialPacket(fileName, clientAddr, clientPort));
+		    serverSocket.send(
+    			assembleDenialPacket(fileName, clientAddr, clientPort));
                             
             	} catch (IOException e) {
             	    System.err.println(e);
             	}
             	
             } catch (IOException e) {
-			    System.err.println(e);
-			    System.exit(1);
-		    } catch (IllegalArgumentException e) {
-		        System.err.println(e);
-			    System.exit(1);
-		    }
+		System.err.println(e);
+		System.exit(1);
+	    } catch (IllegalArgumentException e) {
+		System.err.println(e);
+		System.exit(1);
+	    }
         }
         
     }
@@ -304,7 +301,7 @@ public class server {
     public static int
     getAckNumber(DatagramPacket dp)
     {
-	    ByteBuffer ack = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
+	ByteBuffer ack = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
         ack.flip();
         return ack.getInt();
     }
@@ -347,17 +344,19 @@ class TimeoutThread extends Thread {
             try {
 
                 for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
-                    if ((System.currentTimeMillis() - window.getTimeSent(i)) > 
-                            Constants.ACK_TIMEOUT ) {
-                    
-                        int sequence = window.getSeqNumber(i);
+                    if (window.getSeqNumber(i) > -1) {
+                        if ((System.currentTimeMillis() - window.getTimeSent(i)) > 
+                                Constants.ACK_TIMEOUT ) {
                         
-                        socket.send(
-                            server.constructNextPacket(
-                                fileChannel, clientAddr, clientPort, sequence));
-                                
-                        window.updateTimeSent(sequence);
-                        
+                            int sequence = window.getSeqNumber(i);
+                            
+                            socket.send(
+                                server.constructNextPacket(
+                                    fileChannel, clientAddr, clientPort, sequence));
+                                    
+                            window.updateTimeSent(sequence);
+                            
+                        }
                     }
                 }
                 
