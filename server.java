@@ -168,7 +168,8 @@ public class server {
                         //     find how many new packets to send from the return value
                         
                         int packetsToSend = window.recvAck(acknowledgment);
-                        System.out.println("toSend: " + packetsToSend);
+                        window.printWindow();
+			System.out.println("toSend: " + packetsToSend);
                         
                         // If necessary, send new packets and load them into the window
                         
