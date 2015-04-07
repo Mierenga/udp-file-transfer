@@ -135,7 +135,7 @@ class client {
                 
                 clientSocket.receive(recvPacket);
                 
-                // write the packet contents to the appropriate spot in SeekableByteChannel
+                // write the packet contents to the appropriate spot in FileChannel
                 
                 
                 seqNumber = getSeqNumber(recvPacket);
@@ -201,7 +201,7 @@ class client {
         Write packet data to channel and return the sequence number
     */
     public static void
-    writeToChannel(byte[] packet, SeekableByteChannel sbc)
+    writeToChannel(byte[] packet, FileChannel fc)
     {
         ByteBuffer data = ByteBuffer.allocate(Constants.DATA_SIZE);
         data.put(packet, Constants.HEAD_SIZE, Constants.DATA_SIZE);
@@ -209,11 +209,10 @@ class client {
         
         ByteBuffer head = ByteBuffer.allocate(4).put(packet, 0, 4);
         head.flip();
-        int sequence = head.getInt();
+        long pos = (long) head.getInt() * Constants.DATA_SIZE;
+
         try {
-            sbc.position((long)sequence*Constants.DATA_SIZE);
-            System.err.println("pos:" + sbc.position());
-            System.out.println("wrote " + sbc.write(data) + " bytes.");
+            fc.write(data, pos);
         } catch (IOException e) {
             System.err.println(e.getMessage());
         }

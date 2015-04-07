@@ -116,13 +116,12 @@ public class server {
 		            int ackCount = 0;
                         	
                     Window window = new Window(Constants.WINDOW_SIZE);
-		            window.printWindow();
                         	
                     int head = 0;
                         	
                     // Construct and send the first five packets
 
-                    System.out.print("packet traffic:\n[");
+                    System.out.print("packet traffic:[");
 
                     for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
                         
@@ -143,8 +142,6 @@ public class server {
                         
                     }
                     
-                    window.printWindow();
-
                     // Fire off a TimoutThread to check for packet losses
 	                    
                     TimeoutThread timeoutThread = new TimeoutThread(serverSocket, clientAddr, clientPort, fileChannel, window);
@@ -159,9 +156,18 @@ public class server {
                     while (true) {
                         
             		    // listen for any ack
-            		    
-                        serverSocket.receive(recvPacket);
-                        
+            		    try {
+                            serverSocket.receive(recvPacket);
+                        } catch (SocketTimeoutException e) {
+                            System.out.println("Client did not acknowledge packets ");
+                            for (boolean ack : acksRcvd) {
+                                if (!ack) {
+                                    System.out.println(ack + ", ");
+                                }
+                            }
+                            System.out.println("assumed disconnected.");
+                            break;
+                        }
             		    // parse ack for sequence number
                     			
             		    acknowledgment = getAckNumber(recvPacket);
@@ -179,11 +185,7 @@ public class server {
                         // update window with new acknowledgment,
                         //     find how many new packets to send from the return value
                         
-                        window.printWindow();
                         int packetsToSend = window.recvAck(acknowledgment);
-                        window.printWindow();
-                        
-                        System.out.println("#toSend: " + packetsToSend);
                         
                         // If necessary, send new packets and load them into the window
                         
@@ -218,9 +220,7 @@ public class server {
             	    System.err.println(e);
             	}
             } catch (SocketTimeoutException e) {
-                System.err.println("\nClient failed to acknowledge all packets.");
-                break;
-                
+                System.err.println(e); 
             } catch (IOException e) {
 	            System.err.println(e);
 	            System.exit(1);
@@ -346,8 +346,8 @@ public class server {
 }
 
 // TimoeoutThread is a helper thread that continuously
-// checks each of the values in timeSent[]:
-//   If more than TIMEOUT seconds has occurred since
+// checks each of the values in window.timeSent[]:
+//   If more than ACK_TIMEOUT seconds has occurred since
 //   any timeSent, we should resend the packet
 //   in that slot of the window.
     
@@ -356,8 +356,7 @@ class TimeoutThread extends Thread {
     
     private volatile boolean isRunning = true;
     
-    private DatagramSocket socket = null;
-    
+    private DatagramSocket socket; 
     private FileChannel fileChannel;
     private int clientPort;
     private InetAddress clientAddr;
@@ -399,7 +398,7 @@ class TimeoutThread extends Thread {
                 }
                 
             } catch (SocketException x) {
-                System.err.println("Unable to use timeout " + x);
+                System.err.println(x);
             } catch (IOException x) {
                 System.err.println(x);
             }
@@ -413,20 +412,4 @@ class TimeoutThread extends Thread {
     }
     
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
