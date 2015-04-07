@@ -203,19 +203,17 @@ class client {
     public static void
     writeToChannel(byte[] packet, SeekableByteChannel sbc)
     {
-        ByteBuffer data = ByteBuffer.allocate(Constants.DATA_SIZE).
-                              put(packet, Constants.HEAD_SIZE, Constants.DATA_SIZE);
+        ByteBuffer data = ByteBuffer.allocate(Constants.DATA_SIZE);
+        data.put(packet, Constants.HEAD_SIZE, Constants.DATA_SIZE);
         data.flip();
         
         ByteBuffer head = ByteBuffer.allocate(4).put(packet, 0, 4);
         head.flip();
         int sequence = head.getInt();
-        
         try {
-            System.err.println("\nwriting to block: " + sequence*Constants.DATA_SIZE);
-            sbc.position(sequence*Constants.DATA_SIZE);
-            System.err.println(sbc.position() + " " + data.array().length);
-            sbc.write(data);
+            sbc.position((long)sequence*Constants.DATA_SIZE);
+            System.err.println("pos:" + sbc.position());
+            System.out.println("wrote " + sbc.write(data) + " bytes.");
         } catch (IOException e) {
             System.err.println(e.getMessage());
         }

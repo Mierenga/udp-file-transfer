@@ -144,6 +144,7 @@ public class server {
                     }
                     
                     window.printWindow();
+
                     // Fire off a TimoutThread to check for packet losses
 	                    
                     TimeoutThread timeoutThread = new TimeoutThread(serverSocket, clientAddr, clientPort, fileChannel, window);
@@ -153,7 +154,7 @@ public class server {
                     // listen for acknowledgments from client
                     
                     boolean[] acksRcvd = new boolean[totalPackets];
-                    serverSocket.setSoTimeout(3000);
+                    serverSocket.setSoTimeout(Constants.NO_RESPONSE_TIMEOUT);
                     
                     while (true) {
                         
@@ -299,7 +300,7 @@ public class server {
         byte[] headerArr = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seq).array();
         
         System.arraycopy(headerArr, 0, packArr, 0, Constants.HEAD_SIZE);
-        System.arraycopy(data.array(), 0, packArr, 4, Constants.DATA_SIZE);
+        System.arraycopy(data.array(), 0, packArr, Constants.HEAD_SIZE, Constants.DATA_SIZE);
         
         return packArr;
     }
