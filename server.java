@@ -202,8 +202,9 @@ public class server {
                         }
 
                     }
-	            	
+	                fileChannel.close();    	
 	            }
+            
 	            	
             } catch (NoSuchFileException x) {
             

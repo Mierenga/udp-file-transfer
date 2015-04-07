@@ -177,12 +177,13 @@ class client {
         try {
             if (fileChannel != null) {
                 fileChannel.truncate((long)fileSize);
+                fileChannel.close();       
             }
         } catch (IOException e) {
             System.err.println("Unable to truncate file: " + e.getMessage());
         }
                 
-                
+
         clientSocket.close();
         
     }
@@ -213,7 +214,7 @@ class client {
         try {
             System.err.println("\nwriting to block: " + sequence*Constants.DATA_SIZE);
             sbc.position(sequence*Constants.DATA_SIZE);
-            System.err.println(sbc.position() + data.array().length);
+            System.err.println(sbc.position() + " " + data.array().length);
             sbc.write(data);
         } catch (IOException e) {
             System.err.println(e.getMessage());
