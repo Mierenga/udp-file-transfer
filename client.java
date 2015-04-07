@@ -26,7 +26,7 @@ class client {
         
         DatagramSocket clientSocket = null;
         InetAddress serverAddr = null;
-        SeekableByteChannel fileChannel = null;
+        FileChannel fileChannel = null;
         int fileSize = 0;
         int totalPackets = 0;
         
@@ -116,7 +116,7 @@ class client {
             
             // Create a SeekableByteChannel object for the path
                         
-            fileChannel = Files.newByteChannel(path,
+            fileChannel = (FileChannel) Files.newByteChannel(path,
                 EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
             
             // It is possible that we will receive a duplicate of

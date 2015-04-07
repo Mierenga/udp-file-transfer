@@ -94,7 +94,7 @@ public class server {
             	
                     // Create a SeekableByteChannel object for the path
                         	
-		            SeekableByteChannel fileChannel = Files.newByteChannel(path, StandardOpenOption.READ);
+		            FileChannel fileChannel = (FileChannel) Files.newByteChannel(path, StandardOpenOption.READ);
                         	
 		            // Get info about the file
                         	
@@ -265,23 +265,24 @@ public class server {
         and a complete header, ready to be sent
     */
     public static DatagramPacket
-    constructNextPacket(SeekableByteChannel sbc, InetAddress addr, int port, int seq)
+    constructNextPacket(FileChannel fc, InetAddress addr, int port, int seq)
     {
         ByteBuffer buf = ByteBuffer.allocate(Constants.DATA_SIZE);
+        long pos = seq * Constants.DATA_SIZE;
         try {
-            sbc.read(buf);
+            fc.read(buf, pos);
         } catch (IOException e) {
             System.err.println(e);
         }
         
         
         // TODO part 3: compute the checkSum of the buf and seq here
-        computeChecksum(seq, buf);
+        //computeChecksum(seq, buf);
         
-        byte[] data = new byte[Constants.PACK_SIZE];
-        data = addHeader(seq, buf);
+        byte[] packet = new byte[Constants.PACK_SIZE];
+        packet = makePacket(seq, buf);
         
-        return new DatagramPacket(data, data.length, addr, port);
+        return new DatagramPacket(packet, packet.length, addr, port);
     }
     /*
         TODO part 3: include the checkSum in the header construction
@@ -294,7 +295,7 @@ public class server {
             1000 bytes data
     */
     public static byte[]
-    addHeader(int seq, ByteBuffer data)
+    makePacket(int seq, ByteBuffer data)
     {
         byte[] packArr = new byte[Constants.PACK_SIZE];
         byte[] headerArr = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seq).array();
@@ -357,7 +358,7 @@ class TimeoutThread extends Thread {
     
     private DatagramSocket socket = null;
     
-    private SeekableByteChannel fileChannel;
+    private FileChannel fileChannel;
     private int clientPort;
     private InetAddress clientAddr;
     private Window window;
@@ -365,10 +366,10 @@ class TimeoutThread extends Thread {
     
     
     public TimeoutThread(DatagramSocket sock, InetAddress a, 
-                            int p, SeekableByteChannel sbc, Window win)
+                            int p, FileChannel fc, Window win)
     {
         this.socket = sock;
-        this.fileChannel = sbc;
+        this.fileChannel = fc;
         this.clientPort = p;
         this.clientAddr = a;
         this.window = win;
