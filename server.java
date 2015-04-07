@@ -159,6 +159,7 @@ public class server {
             		    try {
                             serverSocket.receive(recvPacket);
                         } catch (SocketTimeoutException e) {
+                            timeoutThread.kill();
                             System.out.println("Client did not acknowledge packets ");
                             for (boolean ack : acksRcvd) {
                                 if (!ack) {
@@ -222,7 +223,7 @@ public class server {
             } catch (SocketTimeoutException e) {
                 System.err.println(e); 
             } catch (IOException e) {
-	            System.err.println(e);
+	            System.err.println(e + "\n" + e.getStackTrace());
 	            System.exit(1);
 	        } catch (IllegalArgumentException e) {
 		        System.err.println(e);
