@@ -317,7 +317,7 @@ public class server {
     public static int
     getAckNumber(DatagramPacket dp)
     {
-	ByteBuffer ack = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
+        ByteBuffer ack = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
         ack.flip();
         return ack.getInt();
     }

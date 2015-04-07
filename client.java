@@ -137,9 +137,10 @@ class client {
                 
                 // write the packet contents to the appropriate spot in SeekableByteChannel
                 
-                seqNumber = writeToChannel(recvPacket.getData(), fileChannel);
                 
+                seqNumber = getSeqNumber(recvPacket);
                 if (!packetsRcvd[seqNumber]) {
+                    writeToChannel(recvPacket.getData(), fileChannel);
                     packetsRcvd[seqNumber] = true;
                 }
 
@@ -185,11 +186,20 @@ class client {
         clientSocket.close();
         
     }
+    /*
+    
+    */
+    public static int
+    getSeqNumber(DatagramPacket dp) {
+        ByteBuffer seq = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
+        seq.flip();
+        return seq.getInt();
+    }
     
     /*
         Write packet data to channel and return the sequence number
     */
-    public static int
+    public static void
     writeToChannel(byte[] packet, SeekableByteChannel sbc)
     {
         ByteBuffer data = ByteBuffer.allocate(Constants.DATA_SIZE).
@@ -201,13 +211,12 @@ class client {
         int sequence = head.getInt();
         
         try {
-            System.err.println("\nseq to write to: " + sequence*Constants.DATA_SIZE);
+            System.err.println("\nwriting to block: " + sequence*Constants.DATA_SIZE);
             sbc.position(sequence*Constants.DATA_SIZE);
             sbc.write(data);
         } catch (IOException e) {
             System.err.println(e.getMessage());
         }
-        return sequence;
     }
     
     public static boolean
