@@ -88,79 +88,85 @@ class client {
             /* Exit if the file is unavailable */
             
             if (statusStr.startsWith("unable", 0)) {
+            
                 System.out.println(statusStr);
                 clientSocket.close();
                 System.exit(1);
-            }
+                
+            } else if (statusStr.startsWith("server", 0)) {
             
-            /* Get file size and number of expected packets */
-            
-            String[] status = statusStr.split(":");
+                /* Get file size and number of expected packets */
+                
+                String[] status = statusStr.split(":");
 
-            try {
-                fileSize = Integer.parseInt(status[1]);
-                totalPackets = Integer.parseInt(status[2]);
+                try {
+                    fileSize = Integer.parseInt(status[1]);
+                    totalPackets = Integer.parseInt(status[2]);
 
-            } catch (NumberFormatException e) {
-                System.err.println(e);
-            }
-            
-            System.out.println(status[0]);
-            System.out.println("file size: " + status[1] + " bytes");
-            System.out.println("expected packets: " + status[2]);
-            System.out.print("packet traffic: [ ");
-                
-            // Create a path for output file
-            
-            Path path = Paths.get(args[2] + ".out");
-            
-            // Create a SeekableByteChannel object for the path
-                        
-            fileChannel = (FileChannel) Files.newByteChannel(path,
-                EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
-            
-            // It is possible that we will receive a duplicate of
-            // some of the packets if the server did not receive the
-            // acknowledgment or assumed that the packet was lost when
-            // it really just took longer than Constants.ACK_TIMEOUT.
-            // In this case, we should simply discard the second packet
-            // and resend the acknowledgment.
-            
-            int seqNumber = 0;
-                
-            boolean[] packetsRcvd = new boolean[totalPackets];
-
-            while (!checkForComplete(packetsRcvd)) {
-                // receive packet of data
-                
-                clientSocket.receive(recvPacket);
-                
-                // write the packet contents to the appropriate spot in FileChannel
-                
-                
-                seqNumber = getSeqNumber(recvPacket);
-                if (!packetsRcvd[seqNumber]) {
-                    writeToChannel(recvPacket.getData(), fileChannel);
-                    packetsRcvd[seqNumber] = true;
+                } catch (NumberFormatException e) {
+                    System.err.println(e);
                 }
+                
+                System.out.println(status[0]);
+                System.out.println("file size: " + status[1] + " bytes");
+                System.out.println("expected packets: " + status[2]);
+                System.out.print("packet traffic: [ ");
+                    
+                // Create a path for output file
+                
+                Path path = Paths.get(args[2] + ".out");
+                
+                // Create a SeekableByteChannel object for the path
+                            
+                fileChannel = (FileChannel) Files.newByteChannel(path,
+                    EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
+                
+                // It is possible that we will receive a duplicate of
+                // some of the packets if the server did not receive the
+                // acknowledgment or assumed that the packet was lost when
+                // it really just took longer than Constants.ACK_TIMEOUT.
+                // In this case, we should simply discard the second packet
+                // and resend the acknowledgment.
+                
+                int seqNumber = 0;
+                    
+                boolean[] packetsRcvd = new boolean[totalPackets];
 
-                System.out.print("r:" + seqNumber + ", ");
-                
-                // send acknowledgment number to server
-                
-                byte[] ack = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seqNumber).array();
-                
-                DatagramPacket sendAck = 
-                    new DatagramPacket(ack, ack.length, serverAddr, port);
-                clientSocket.send(sendAck);
-                
-                System.out.print("a:" + seqNumber + ", ");
+                while (!checkForComplete(packetsRcvd)) {
+                    // receive packet of data
+                    
+                    clientSocket.receive(recvPacket);
+                    
+                    // write the packet contents to the appropriate spot in FileChannel
+                    
+                    
+                    seqNumber = getSeqNumber(recvPacket);
+                    if (!packetsRcvd[seqNumber]) {
+                        writeToChannel(recvPacket.getData(), fileChannel);
+                        packetsRcvd[seqNumber] = true;
+                    }
 
+                    System.out.print("r:" + seqNumber + ", ");
+                    
+                    // send acknowledgment number to server
+                    
+                    byte[] ack = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seqNumber).array();
+                    
+                    DatagramPacket sendAck = 
+                        new DatagramPacket(ack, ack.length, serverAddr, port);
+                    clientSocket.send(sendAck);
+                    
+                    System.out.print("a:" + seqNumber + ", ");
+
+                }
+                
+                System.out.println("received and acknowledged all packets ]");
+                System.out.println("New file is '" + args[2] + ".out'");
+            } else {
+                System.out.println("No response from server.");
+                clientSocket.close();
+                System.exit(1);
             }
-            
-            System.out.println("received and acknowledged all packets ]");
-            System.out.println("New file is '" + args[2] + ".out'");
-            
         } catch (UnknownHostException e) {
             System.out.println("first argument: invalid IP address");
             System.exit(1);

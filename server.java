@@ -160,10 +160,10 @@ public class server {
                             serverSocket.receive(recvPacket);
                         } catch (SocketTimeoutException e) {
                             timeoutThread.kill();
-                            System.out.println("Client did not acknowledge packets ");
-                            for (boolean ack : acksRcvd) {
-                                if (!ack) {
-                                    System.out.println(ack + ", ");
+                            System.out.print("Client did not acknowledge packets ");
+                            for (int i = 0; i < acksRcvd.length; i++) {
+                                if (!acksRcvd[i]) {
+                                    System.out.print(i + ", ");
                                 }
                             }
                             System.out.println("assumed disconnected.");
@@ -273,7 +273,7 @@ public class server {
         try {
             fc.read(buf, pos);
         } catch (IOException e) {
-            System.err.println(e);
+	        System.err.println(e + "\n" + e.getStackTrace());
         }
         
         
@@ -398,11 +398,12 @@ class TimeoutThread extends Thread {
                     }
                 }
                 
-            } catch (SocketException x) {
-                System.err.println(x);
-            } catch (IOException x) {
-                System.err.println(x);
+            } catch (SocketException e) {
+                System.err.println(e);
+            } catch (IOException e) {
+	            System.err.println(e + "\n" + e.getStackTrace());
             }
+
             
         }
     }
