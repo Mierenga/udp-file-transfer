@@ -59,7 +59,8 @@ public class server {
             try {
 
                 serverSocket.setSoTimeout(0);
-
+                System.out.println("Listening for new client request.");
+                
                 // Receive a file request 
                 
                 byte[] data = new byte[Constants.PACK_SIZE];

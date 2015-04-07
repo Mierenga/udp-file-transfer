@@ -213,6 +213,7 @@ class client {
         try {
             System.err.println("\nwriting to block: " + sequence*Constants.DATA_SIZE);
             sbc.position(sequence*Constants.DATA_SIZE);
+            System.err.println(sbc.position() + data.array().length);
             sbc.write(data);
         } catch (IOException e) {
             System.err.println(e.getMessage());
