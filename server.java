@@ -49,14 +49,16 @@ public class server {
             serverSocket = new DatagramSocket(port);
         
         } catch (SocketException e) {
-	    System.err.println(e);
-	    System.exit(1);
+            System.err.println(e);
+	        System.exit(1);
         }
         
         
         for(;;) {
         
             try {
+
+                serverSocket.setSoTimeout(0);
 
                 // Receive a file request 
                 
@@ -214,7 +216,6 @@ public class server {
             	}
             } catch (SocketTimeoutException e) {
                 System.err.println("\nClient failed to acknowledge all packets.");
-                serverSocket.setSoTimeout(0);
                 break;
                 
             } catch (IOException e) {
