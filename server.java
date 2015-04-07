@@ -150,7 +150,8 @@ public class server {
                     // listen for acknowledgments from client
                     
                     boolean[] acksRcvd = new boolean[totalPackets];
-        
+                    serverSocket.setSoTimeout(3000);
+                    
                     while (true) {
                         
             		    // listen for any ack
@@ -205,20 +206,24 @@ public class server {
             
                 // Send and print denial of request
                 try {
-		    serverSocket.send(
-    			assembleDenialPacket(fileName, clientAddr, clientPort));
+		            serverSocket.send(
+    			        assembleDenialPacket(fileName, clientAddr, clientPort));
                             
             	} catch (IOException e) {
             	    System.err.println(e);
             	}
-            	
+            } catch (SocketTimeoutException e) {
+                System.err.println("\nClient failed to acknowledge all packets.");
+                serverSocket.setSoTimeout(0);
+                break;
+                
             } catch (IOException e) {
-		System.err.println(e);
-		System.exit(1);
-	    } catch (IllegalArgumentException e) {
-		System.err.println(e);
-		System.exit(1);
-	    }
+	            System.err.println(e);
+	            System.exit(1);
+	        } catch (IllegalArgumentException e) {
+		        System.err.println(e);
+		        System.exit(1);
+	        }
         }
         
     }

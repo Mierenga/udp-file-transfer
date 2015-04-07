@@ -201,7 +201,7 @@ class client {
         int sequence = head.getInt();
         
         try {
-            System.err.println("seq to write to: " + sequence);
+            System.err.println("\nseq to write to: " + sequence*Constants.DATA_SIZE);
             sbc.position(sequence*Constants.DATA_SIZE);
             sbc.write(data);
         } catch (IOException e) {
