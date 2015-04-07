@@ -166,7 +166,7 @@ public class server {
                                     System.out.print(i + ", ");
                                 }
                             }
-                            System.out.println("assumed disconnected.");
+                            System.out.println("assumed disconnected.]\n");
                             break;
                         }
             		    // parse ack for sequence number
@@ -274,6 +274,7 @@ public class server {
             fc.read(buf, pos);
         } catch (IOException e) {
 	        System.err.println(e + "\n" + e.getStackTrace());
+	        return null;
         }
         
         
@@ -382,7 +383,7 @@ class TimeoutThread extends Thread {
             try {
 
                 for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
-                    if (window.getSeqNumber(i) > -1) {
+                    if (window.getSeqNumber(i) >= 0) {
                         if ((System.currentTimeMillis() - window.getTimeSent(i)) > 
                                 Constants.ACK_TIMEOUT ) {
                         

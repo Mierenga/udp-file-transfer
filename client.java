@@ -121,12 +121,7 @@ class client {
                 fileChannel = (FileChannel) Files.newByteChannel(path,
                     EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
                 
-                // It is possible that we will receive a duplicate of
-                // some of the packets if the server did not receive the
-                // acknowledgment or assumed that the packet was lost when
-                // it really just took longer than Constants.ACK_TIMEOUT.
-                // In this case, we should simply discard the second packet
-                // and resend the acknowledgment.
+
                 
                 int seqNumber = 0;
                     
@@ -137,8 +132,13 @@ class client {
                     
                     clientSocket.receive(recvPacket);
                     
-                    // write the packet contents to the appropriate spot in FileChannel
-                    
+                    // write the packet contents to the appropriate spot in FileChannel.
+                    // We may receive a duplicate of
+                    //     some of the packets if the server did not receive the
+                    //     acknowledgment or assumed that the packet was lost when
+                    //     it really just took longer than Constants.ACK_TIMEOUT.
+                    //     In this case, we should simply discard the second packet
+                    //     and resend the acknowledgment.
                     
                     seqNumber = getSeqNumber(recvPacket);
                     if (!packetsRcvd[seqNumber]) {
@@ -163,7 +163,7 @@ class client {
                 System.out.println("received and acknowledged all packets ]");
                 System.out.println("New file is '" + args[2] + ".out'");
             } else {
-                System.out.println("No response from server.");
+                System.out.println("Network problems. Please try again.");
                 clientSocket.close();
                 System.exit(1);
             }
