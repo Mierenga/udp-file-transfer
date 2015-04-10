@@ -301,20 +301,29 @@ public class server {
         byte[] packArr = new byte[Constants.PACK_SIZE];
         byte[] seqArr = ByteBuffer.allocate(Constants.SEQ_SIZE).putInt(seq).array();
         System.arraycopy(seqArr, 0, packArr, 0, Constants.SEQ_SIZE);
-        System.arraycopy(buf.array(), 0, packArr, Constants.SEQ_SIZE+Constants.SUM_SIZE, Constants.DATA_SIZE);
+        System.arraycopy(buf.array(), 0, packArr, Constants.HEAD_SIZE, Constants.DATA_SIZE);
         
-        byte sum;
-        byte overflow;
-        sum = packArr[0] + packArr[1];
-        overflow = 
-        for (int i = 2; i < PACK_SIZE; i++) {
-          // compute checksum  
-          packArr[i]
+
+        // compute checksum  
+        
+        short sum = (short) (packArr[0] + packArr[1]);
+        // it did overflow
+        if (sum >= 256) {
+            sum = (short)(sum - 255);
         }
         
+        for (int i = 2; i < Constants.PACK_SIZE; i++) {
+
+            sum = (short) (sum + (short) packArr[i]);
+          
+            if (sum >= 256) { // it overflowed
+              sum = (short)(sum - 255);
+            }
+        }
         
-        byte[] sumArr = ByteBuffer.allocate(Constants.SUM_SIZE).putInt(sum).array();
-        System.arraycopy(sumArr, 0, packArr, Constants.SEQ_SIZE, Constants.SUM_SIZE);
+        sum = (short) ~sum;
+        
+        packArr[Constants.SEQ_SIZE] = (byte) sum;
         
         return packArr;
     }

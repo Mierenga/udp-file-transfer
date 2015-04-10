@@ -142,11 +142,18 @@ class client {
                     
                     seqNumber = getSeqNumber(recvPacket);
                     if (!packetsRcvd[seqNumber]) {
-                        writeToChannel(recvPacket.getData(), fileChannel);
-                        packetsRcvd[seqNumber] = true;
+                        if (verifyCheckSum(recvPacket.getData())) {
+                            writeToChannel(recvPacket.getData(), fileChannel);
+                            packetsRcvd[seqNumber] = true;
+                            System.out.print("r:" + seqNumber + ", ");
+                        } else {
+                            System.out.print("r:" + seqNumber + " CORRUPTED, ");
+                        }
+                    } else {
+                        System.out.print("r:" + seqNumber + " REPEAT, ");
                     }
 
-                    System.out.print("r:" + seqNumber + ", ");
+                    
                     
                     // send acknowledgment number to server
                     
@@ -202,6 +209,41 @@ class client {
         seq.flip();
         return seq.getInt();
     }
+    
+    /*
+    
+    */
+    public static boolean
+    verifyCheckSum(byte[] packArr) {
+    
+        // compute checksum
+        byte targetSum = packArr[Constants.SEQ_SIZE];
+        packArr[Constants.SEQ_SIZE] = 0;
+        
+        short sum = (short) (packArr[0] + packArr[1]);
+        // it did overflow
+        if (sum >= 256)
+            sum = (short)(sum - 255);
+        
+        for (int i = 2; i < Constants.PACK_SIZE; i++) {
+        
+            sum = (short) (sum + (short) packArr[i]);
+          
+            if (sum >= 256) // it overflowed
+                sum = (short)(sum - 255);
+            
+        }
+        
+        sum = (short) ~sum;
+        
+        if (sum == targetSum) {
+            return true;
+        } else {
+            return false;
+        }
+    
+    }
+    
     
     /*
         Write packet data to channel and return the sequence number
