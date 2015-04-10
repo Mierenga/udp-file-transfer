@@ -205,8 +205,7 @@ public class server {
                             
                         }
 
-                    }
-	                fileChannel.close();    	
+                    }  	
 	            }
             
 	            	
@@ -297,26 +296,28 @@ public class server {
             1000 bytes data
     */
     public static byte[]
-    makePacket(int seq, ByteBuffer data)
+    makePacket(int seq, ByteBuffer buf)
     {
         byte[] packArr = new byte[Constants.PACK_SIZE];
-        byte[] headerArr = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seq).array();
+        byte[] seqArr = ByteBuffer.allocate(Constants.SEQ_SIZE).putInt(seq).array();
+        System.arraycopy(seqArr, 0, packArr, 0, Constants.SEQ_SIZE);
+        System.arraycopy(buf.array(), 0, packArr, Constants.SEQ_SIZE+Constants.SUM_SIZE, Constants.DATA_SIZE);
         
-        System.arraycopy(headerArr, 0, packArr, 0, Constants.HEAD_SIZE);
-        System.arraycopy(data.array(), 0, packArr, Constants.HEAD_SIZE, Constants.DATA_SIZE);
+        byte sum;
+        byte overflow;
+        sum = packArr[0] + packArr[1];
+        overflow = 
+        for (int i = 2; i < PACK_SIZE; i++) {
+          // compute checksum  
+          packArr[i]
+        }
+        
+        
+        byte[] sumArr = ByteBuffer.allocate(Constants.SUM_SIZE).putInt(sum).array();
+        System.arraycopy(sumArr, 0, packArr, Constants.SEQ_SIZE, Constants.SUM_SIZE);
         
         return packArr;
     }
-    /*
-        TODO part 3
-        Returns the checksum for the given seq# and data buffer
-    */
-    public static byte[]
-    computeChecksum(int seq, ByteBuffer buf)
-    {
-        return null;
-    }
-
     /*
         Returns sequence number from data of acknowledgment packet
     */
@@ -406,6 +407,12 @@ class TimeoutThread extends Thread {
             }
 
             
+        }
+        
+        try {
+            fileChannel.close();
+        } catch (IOException e) {
+            System.err.println(e + "\n" + e.getStackTrace());
         }
     }
     
