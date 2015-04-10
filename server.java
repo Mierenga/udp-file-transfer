@@ -170,42 +170,47 @@ public class server {
                             break;
                         }
             		    // parse ack for sequence number
-                    			
-            		    acknowledgment = getAckNumber(recvPacket);
-            		    acksRcvd[acknowledgment] = true;
+                    	
+            		    acknowledgment = getAckNumber(recvPacket.getData());
+            		    if ( acknowledgment >= 0 ) {
+                		    acksRcvd[acknowledgment] = true;
                         
-                        if (checkForComplete(acksRcvd)) {
-                            timeoutThread.kill();
-                            System.out.println("client acknowledged " +
-                                totalPackets + " of " + totalPackets + " packets]\n");
+                            if (checkForComplete(acksRcvd)) {
+                                timeoutThread.kill();
+                                System.out.println("client acknowledged " +
+                                    totalPackets + " of " + totalPackets + " packets]\n");
+                                break;
+                            }
+                            
+                            System.out.print("a:" + acknowledgment + ", ");
+                        
+                            // update window with new acknowledgment,
+                            //     find how many new packets to send from the return value
+                            
+                            int packetsToSend = window.recvAck(acknowledgment);
+                            
+                            // If necessary, send new packets and load them into the window
+                            
+                            for (int i = 0; i < packetsToSend; i++) {
+	                            if (sequence >= totalPackets) {
+	                                break;
+	                            }
+                                serverSocket.send(
+                                    constructNextPacket(
+                                        fileChannel, clientAddr, clientPort, sequence));
+                            
+                                window.loadFirstEmpty(sequence);
+                                
+                                System.out.print("s:" + sequence + ", ");
+                                sequence++;
+                                
+                            }
+                        } else {
+                            System.out.print("Fatal error: client ack too corrupted.\n");
                             break;
                         }
-                            
-                        System.out.print("a:" + acknowledgment + ", ");
-                        
-                        // update window with new acknowledgment,
-                        //     find how many new packets to send from the return value
-                        
-                        int packetsToSend = window.recvAck(acknowledgment);
-                        
-                        // If necessary, send new packets and load them into the window
-                        
-                        for (int i = 0; i < packetsToSend; i++) {
-		                    if (sequence >= totalPackets) {
-		                        break;
-		                    }
-                            serverSocket.send(
-                                constructNextPacket(
-                                    fileChannel, clientAddr, clientPort, sequence));
-                        
-                            window.loadFirstEmpty(sequence);
-                            
-                            System.out.print("s:" + sequence + ", ");
-                            sequence++;
-                            
-                        }
-
-                    }  	
+                    }
+                     	
 	            }
             
 	            	
@@ -331,12 +336,28 @@ public class server {
         Returns sequence number from data of acknowledgment packet
     */
     public static int
-    getAckNumber(DatagramPacket dp)
+    getAckNumber(byte[] ackArr)
     {
-        ByteBuffer ack = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
-        ack.flip();
-        return ack.getInt();
+        int size = Constants.MAX_BIT_ERRORS + 2;
+        int[] allegedSeqNumbers = new int[size];
+        
+        for (int i = 0; i < size; i++) {
+            ByteBuffer seqBuf = ByteBuffer.allocate(Constants.SEQ_SIZE);
+            seqBuf.put(ackArr, i*4, Constants.SEQ_SIZE);
+            seqBuf.flip();
+            allegedSeqNumbers[i] = seqBuf.getInt();
+        }
+        
+        for (int i = 0; i < size; i++)
+            for (int j = 0; j < size; j++)
+                if (i != j && allegedSeqNumbers[i] == allegedSeqNumbers[j])
+                    return allegedSeqNumbers[i];
+        
+        return -1;
+
     }
+
+    
     public static boolean
     checkForComplete(boolean[] ackd)
     {

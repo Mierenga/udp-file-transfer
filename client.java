@@ -143,9 +143,21 @@ class client {
                     seqNumber = getSeqNumber(recvPacket);
                     if (!packetsRcvd[seqNumber]) {
                         if (verifyCheckSum(recvPacket.getData())) {
+                        
                             writeToChannel(recvPacket.getData(), fileChannel);
                             packetsRcvd[seqNumber] = true;
                             System.out.print("r:" + seqNumber + ", ");
+                            
+                            // send acknowledgment number to server
+
+                            byte[] ack = makeAckArray(seqNumber);
+                            
+                            DatagramPacket sendAck = 
+                                new DatagramPacket(ack, ack.length, serverAddr, port);
+                            clientSocket.send(sendAck);
+                            
+                            System.out.print("a:" + seqNumber + ", ");
+                            
                         } else {
                             System.out.print("r:" + seqNumber + " CORRUPTED, ");
                         }
@@ -155,15 +167,7 @@ class client {
 
                     
                     
-                    // send acknowledgment number to server
                     
-                    byte[] ack = ByteBuffer.allocate(Constants.HEAD_SIZE).putInt(seqNumber).array();
-                    
-                    DatagramPacket sendAck = 
-                        new DatagramPacket(ack, ack.length, serverAddr, port);
-                    clientSocket.send(sendAck);
-                    
-                    System.out.print("a:" + seqNumber + ", ");
 
                 }
                 
@@ -201,22 +205,22 @@ class client {
         
     }
     /*
-    
+        
     */
     public static int
-    getSeqNumber(DatagramPacket dp) {
+    getSeqNumber(DatagramPacket dp)
+    {
         ByteBuffer seq = ByteBuffer.allocate(4).put(dp.getData(), 0, 4);
         seq.flip();
         return seq.getInt();
     }
     
     /*
-    
+        
     */
     public static boolean
-    verifyCheckSum(byte[] packArr) {
-    
-        // compute checksum
+    verifyCheckSum(byte[] packArr)
+    {
         byte targetSum = packArr[Constants.SEQ_SIZE];
         packArr[Constants.SEQ_SIZE] = 0;
         
@@ -236,14 +240,32 @@ class client {
         
         sum = (short) ~sum;
         
-        if (sum == targetSum) {
+        if ((byte) sum == targetSum) {
             return true;
         } else {
             return false;
         }
-    
     }
+    /*
     
+    */
+    public static byte[]
+    makeAckArray(int seq)
+    {
+    
+        int size = 0;
+        for (int i = 0; i < Constants.MAX_BIT_ERRORS + 2; i++) {
+            size += Constants.SEQ_SIZE;
+        }
+        
+        ByteBuffer ack = ByteBuffer.allocate(size);
+    
+        for (int i = 0; i < Constants.MAX_BIT_ERRORS + 2; i++) {
+            ack.putInt(seq).array();
+        }
+        
+        return ack.array();
+    }
     
     /*
         Write packet data to channel and return the sequence number
@@ -255,9 +277,10 @@ class client {
         data.put(packet, Constants.HEAD_SIZE, Constants.DATA_SIZE);
         data.flip();
         
-        ByteBuffer head = ByteBuffer.allocate(4).put(packet, 0, 4);
-        head.flip();
-        long pos = (long) head.getInt() * Constants.DATA_SIZE;
+        ByteBuffer seq =
+            ByteBuffer.allocate(Constants.SEQ_SIZE).put(packet, 0, Constants.SEQ_SIZE);
+        seq.flip();
+        long pos = (long) seq.getInt() * Constants.DATA_SIZE;
 
         try {
             fc.write(data, pos);
@@ -265,6 +288,7 @@ class client {
             System.err.println(e.getMessage());
         }
     }
+    
     
     public static boolean
     checkForComplete(boolean[] rcvd)
