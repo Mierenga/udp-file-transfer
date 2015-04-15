@@ -201,7 +201,7 @@ public class server {
                             
                                 window.loadFirstEmpty(sequence);
                                 System.out.print(System.currentTimeMillis());
-                                System.out.print("s:" + sequence + ", \n");
+                                System.out.print(" s:" + sequence + ", \n");
                                 sequence++;
                                 
                             }
@@ -275,7 +275,9 @@ public class server {
         ByteBuffer buf = ByteBuffer.allocate(Constants.DATA_SIZE);
         long pos = seq * Constants.DATA_SIZE;
         try {
-            fc.read(buf, pos);
+            if (pos >= 0) {
+                fc.read(buf, pos);
+            }
         } catch (IOException e) {
 	        System.err.println(e + "\n" + e.getStackTrace());
 	        return null;

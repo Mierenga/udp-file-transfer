@@ -142,13 +142,13 @@ class client {
                     //     and resend the acknowledgment.
                     
                     seqNumber = getSeqNumber(recvPacket);
-                    if (!packetsRcvd[seqNumber]) {
-                        if (verifyCheckSum(recvPacket.getData())) {
-                        
+                    
+                    if (verifyCheckSum(recvPacket.getData())) {
+                        if (!packetsRcvd[seqNumber]) {
                             writeToChannel(recvPacket.getData(), fileChannel);
                             packetsRcvd[seqNumber] = true;
                             System.out.print(System.currentTimeMillis());
-                            System.out.print("r:" + seqNumber + ", \n");
+                            System.out.print(" r:" + seqNumber + ", \n");
                             
                             // send acknowledgment number to server
 
@@ -159,15 +159,15 @@ class client {
                             clientSocket.send(sendAck);
                             System.out.print(System.currentTimeMillis());
                             System.out.print(" a:" + seqNumber + ", \n");
-                            
                         } else {
                             System.out.print(System.currentTimeMillis());
-                            System.out.print("r:" + seqNumber + " CORRUPTED, \n");
+                            System.out.print(" r:" + seqNumber + " REPEAT, \n");
                         }
                     } else {
                         System.out.print(System.currentTimeMillis());
-                        System.out.print("r:" + seqNumber + " REPEAT, \n");
+                        System.out.print(" r:" + seqNumber + " CORRUPTED, \n");
                     }
+                    
 
                     
                     
