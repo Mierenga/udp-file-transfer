@@ -121,7 +121,7 @@ public class server {
                         	
                     // Construct and send the first five packets
 
-                    System.out.print("packet traffic:[");
+                    System.out.print("packet traffic:[\n");
 
                     for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
                         
@@ -132,8 +132,8 @@ public class server {
                                     fileChannel, clientAddr, clientPort, sequence));
                             
                             window.loadFirstEmpty(sequence);
-
-                            System.out.print("s:" + sequence + ", ");
+                            System.out.print(System.currentTimeMillis());
+                            System.out.print(" s:" + sequence + ", \n");
                             sequence++;
                             
                         } else {
@@ -181,8 +181,8 @@ public class server {
                                     totalPackets + " of " + totalPackets + " packets]\n");
                                 break;
                             }
-                            
-                            System.out.print("a:" + acknowledgment + ", ");
+                            System.out.print(System.currentTimeMillis());
+                            System.out.print(" a:" + acknowledgment + ", \n");
                         
                             // update window with new acknowledgment,
                             //     find how many new packets to send from the return value
@@ -200,8 +200,8 @@ public class server {
                                         fileChannel, clientAddr, clientPort, sequence));
                             
                                 window.loadFirstEmpty(sequence);
-                                
-                                System.out.print("s:" + sequence + ", ");
+                                System.out.print(System.currentTimeMillis());
+                                System.out.print("s:" + sequence + ", \n");
                                 sequence++;
                                 
                             }
@@ -419,6 +419,8 @@ class TimeoutThread extends Thread {
                                 Constants.ACK_TIMEOUT ) {
                         
                             int sequence = window.getSeqNumber(i);
+                            System.out.print(System.currentTimeMillis());
+                            System.out.print(" s:" + sequence + " REPEAT, \n");
                             
                             socket.send(
                                 server.constructNextPacket(

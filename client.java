@@ -62,6 +62,16 @@ class client {
                 System.err.println("second argument: port must be from 1024 to 65535");
             }
             
+            // Create a path for output file
+            
+            Path path = Paths.get(args[2] + ".out");
+            
+            // Create a SeekableByteChannel object for the path
+                        
+            fileChannel = (FileChannel) Files.newByteChannel(path,
+                EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
+            
+            
             /* Open a socket */
              
             clientSocket = new DatagramSocket();
@@ -110,17 +120,8 @@ class client {
                 System.out.println(status[0]);
                 System.out.println("file size: " + status[1] + " bytes");
                 System.out.println("expected packets: " + status[2]);
-                System.out.print("packet traffic: [ ");
-                    
-                // Create a path for output file
-                
-                Path path = Paths.get(args[2] + ".out");
-                
-                // Create a SeekableByteChannel object for the path
-                            
-                fileChannel = (FileChannel) Files.newByteChannel(path,
-                    EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE));
-                
+                System.out.print("packet traffic: [\n");
+                System.out.println(clientSocket.getSendBufferSize());
 
                 
                 int seqNumber = 0;
@@ -146,7 +147,8 @@ class client {
                         
                             writeToChannel(recvPacket.getData(), fileChannel);
                             packetsRcvd[seqNumber] = true;
-                            System.out.print("r:" + seqNumber + ", ");
+                            System.out.print(System.currentTimeMillis());
+                            System.out.print("r:" + seqNumber + ", \n");
                             
                             // send acknowledgment number to server
 
@@ -155,14 +157,16 @@ class client {
                             DatagramPacket sendAck = 
                                 new DatagramPacket(ack, ack.length, serverAddr, port);
                             clientSocket.send(sendAck);
-                            
-                            System.out.print("a:" + seqNumber + ", ");
+                            System.out.print(System.currentTimeMillis());
+                            System.out.print(" a:" + seqNumber + ", \n");
                             
                         } else {
-                            System.out.print("r:" + seqNumber + " CORRUPTED, ");
+                            System.out.print(System.currentTimeMillis());
+                            System.out.print("r:" + seqNumber + " CORRUPTED, \n");
                         }
                     } else {
-                        System.out.print("r:" + seqNumber + " REPEAT, ");
+                        System.out.print(System.currentTimeMillis());
+                        System.out.print("r:" + seqNumber + " REPEAT, \n");
                     }
 
                     
