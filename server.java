@@ -416,11 +416,11 @@ class TimeoutThread extends Thread {
             try {
 
                 for (int i = 0; i < Constants.WINDOW_SIZE; i++) {
-                    if (window.getSeqNumber(i) >= 0) {
+                    int sequence = window.getSeqNumber(i);
+                    if (sequence >= 0) {
                         if ((System.currentTimeMillis() - window.getTimeSent(i)) > 
                                 Constants.ACK_TIMEOUT ) {
                         
-                            int sequence = window.getSeqNumber(i);
                             System.out.print(System.currentTimeMillis());
                             System.out.print(" s:" + sequence + " REPEAT, \n");
                             
