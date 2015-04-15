@@ -423,12 +423,14 @@ class TimeoutThread extends Thread {
                         
                             System.out.print(System.currentTimeMillis());
                             System.out.print(" s:" + sequence + " REPEAT, \n");
-                            
-                            socket.send(
-                                server.constructNextPacket(
-                                    fileChannel, clientAddr, clientPort, sequence));
-                                    
-                            window.updateTimeSent(sequence);
+                            if (!isRunning) {
+                                break;
+                            }
+                                socket.send(
+                                    server.constructNextPacket(
+                                        fileChannel, clientAddr, clientPort, sequence));
+                                        
+                                window.updateTimeSent(sequence);
                             
                         }
                     }
